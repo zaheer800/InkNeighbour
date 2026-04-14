@@ -5,6 +5,7 @@ import { useOwner } from './useOwner'
 
 /**
  * Hook for job management — fetch, accept, update status.
+ * On fetch: auto-cancels any submitted jobs whose sla_deadline has passed.
  * All mutations co-located here per architectural guidelines.
  */
 export function useJobs() {
@@ -23,8 +24,43 @@ export function useJobs() {
       .eq('owner_id', owner.id)
       .order('created_at', { ascending: false })
 
-    if (error) setError(error)
-    else setJobs(data || [])
+    if (error) {
+      setError(error)
+      setLoading(false)
+      return
+    }
+
+    const allJobs = data || []
+
+    // Auto-cancel SLA-expired submitted jobs
+    const now = new Date()
+    const expired = allJobs.filter(
+      j => j.status === 'submitted'
+        && j.sla_deadline
+        && new Date(j.sla_deadline) < now
+    )
+
+    if (expired.length > 0) {
+      await Promise.all(
+        expired.map(async j => {
+          await supabase
+            .from('jobs')
+            .update({ status: 'cancelled' })
+            .eq('id', j.id)
+          await deleteJobFile(j.id)
+        })
+      )
+      // Re-fetch after auto-cancellation so UI reflects final state
+      const { data: refreshed } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('owner_id', owner.id)
+        .order('created_at', { ascending: false })
+      setJobs(refreshed || [])
+    } else {
+      setJobs(allJobs)
+    }
+
     setLoading(false)
   }, [owner])
 
@@ -33,16 +69,9 @@ export function useJobs() {
   }, [fetchJobs])
 
   const updateJobStatus = useCallback(async (jobId, status) => {
-    const updates = { status, updated_at: new Date().toISOString() }
-
-    // Add feedback_pending logic: set after delivered
-    if (status === 'delivered') {
-      updates.status = 'delivered'
-    }
-
     const { data, error } = await supabase
       .from('jobs')
-      .update(updates)
+      .update({ status })
       .eq('id', jobId)
       .select()
       .single()

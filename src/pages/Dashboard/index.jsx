@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Bell, RefreshCw, BarChart2, MessageSquare, Settings, LogOut, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Bell, RefreshCw, BarChart2, MessageSquare, Settings, ToggleLeft, ToggleRight, Flame, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../hooks/useAuth'
 import { useOwner } from '../../hooks/useOwner'
 import { useJobs } from '../../hooks/useJobs'
+import { useReliability } from '../../hooks/useReliability'
 import JobCard from '../../components/JobCard'
 import Button from '../../components/ui/Button'
+import SLACountdown from '../../components/SLACountdown'
+import ReliabilityScore from '../../components/ReliabilityScore'
+import PreCommitmentPrompt from '../../components/PreCommitmentPrompt'
 import { formatCurrency } from '../../lib/countries'
 import { setupOwnerPush } from '../../notifications/index'
 
@@ -23,10 +27,18 @@ const TAB_LABELS = {
 export default function DashboardJobs() {
   const { t } = useTranslation()
   const { signOut } = useAuth()
-  const { owner, toggleStatus } = useOwner()
+  const { owner, toggleStatus, isSoftLocked } = useOwner()
   const { jobs, loading, fetchJobs } = useJobs()
+  const {
+    score, grade, hasEnoughData, streak,
+    acceptanceRate, completionRate,
+    isSoftLocked: reliabilitySoftLocked,
+    refetch: refetchReliability
+  } = useReliability()
+
   const [activeTab, setActiveTab] = useState('submitted')
   const [toggling, setToggling] = useState(false)
+  const [showCommitPrompt, setShowCommitPrompt] = useState(false)
 
   const countryCode = owner?.country_code || 'IN'
   const fmt = v => formatCurrency(v, countryCode)
@@ -45,11 +57,44 @@ export default function DashboardJobs() {
 
   const filteredJobs = jobs.filter(j => j.status === activeTab)
 
-  async function handleToggle() {
+  // ── Toggle handler ──────────────────────────────────────────
+  // If going live: show pre-commitment prompt first.
+  // If going to pause: toggle directly.
+  function handleToggleClick() {
+    if (!owner) return
+
+    if (isSoftLocked || reliabilitySoftLocked) {
+      const lockUntil = owner.soft_lock_until
+        ? new Date(owner.soft_lock_until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : ''
+      toast.error(t('soft_lock.message', { time: lockUntil }))
+      return
+    }
+
+    if (owner.status !== 'active') {
+      // Going live — show commitment prompt
+      setShowCommitPrompt(true)
+    } else {
+      // Pausing — no prompt needed
+      doToggle()
+    }
+  }
+
+  async function doToggle() {
     setToggling(true)
-    const { error } = await toggleStatus()
-    if (error) toast.error(t('errors.network'))
+    const result = await toggleStatus()
+    if (result?.blocked === 'soft_lock') {
+      toast.error(t('soft_lock.active'))
+    } else if (result?.error) {
+      toast.error(t('errors.network'))
+    }
+    refetchReliability()
     setToggling(false)
+  }
+
+  async function handleCommitConfirm() {
+    setShowCommitPrompt(false)
+    await doToggle()
   }
 
   async function enablePush() {
@@ -59,8 +104,21 @@ export default function DashboardJobs() {
     else toast.error('Could not enable notifications. Check browser permissions.')
   }
 
+  const softLockExpiry = owner?.soft_lock_until
+    ? new Date(owner.soft_lock_until)
+    : null
+  const isLocked = softLockExpiry && softLockExpiry > new Date()
+
   return (
     <div className="min-h-screen bg-bg">
+      {/* Pre-commitment modal */}
+      <PreCommitmentPrompt
+        open={showCommitPrompt}
+        onConfirm={handleCommitConfirm}
+        onCancel={() => setShowCommitPrompt(false)}
+        loading={toggling}
+      />
+
       {/* Top navbar */}
       <nav className="bg-ink2 text-white px-4 py-4 sticky top-0 z-30">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
@@ -69,11 +127,28 @@ export default function DashboardJobs() {
               {owner?.shop_name || 'My Shop'}
             </p>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className={`w-2 h-2 rounded-full ${owner?.status === 'active' ? 'bg-green' : 'bg-amber'}`} />
-              <span className="text-sm text-white/70 capitalize">{owner?.status || 'loading'}</span>
+              {isLocked ? (
+                <>
+                  <Lock size={12} className="text-red" />
+                  <span className="text-sm text-red/90">{t('soft_lock.active')}</span>
+                </>
+              ) : (
+                <>
+                  <span className={`w-2 h-2 rounded-full ${owner?.status === 'active' ? 'bg-green' : 'bg-amber'}`} />
+                  <span className="text-sm text-white/70 capitalize">{owner?.status || 'loading'}</span>
+                </>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Streak badge */}
+            {streak > 0 && (
+              <div className="flex items-center gap-1 bg-amber/20 text-amber px-2.5 py-1 rounded-full text-xs font-bold">
+                <Flame size={12} />
+                {streak}
+              </div>
+            )}
+
             <button
               onClick={enablePush}
               className="p-2 text-white/60 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -81,17 +156,34 @@ export default function DashboardJobs() {
             >
               <Bell size={20} />
             </button>
+
             <button
-              onClick={handleToggle}
-              disabled={toggling}
-              className="p-2 text-white/60 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+              onClick={handleToggleClick}
+              disabled={toggling || isLocked}
+              className="p-2 text-white/60 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-40"
               aria-label="Toggle shop status"
             >
-              {owner?.status === 'active' ? <ToggleRight size={24} className="text-green" /> : <ToggleLeft size={24} className="text-amber" />}
+              {isLocked
+                ? <Lock size={22} className="text-red/70" />
+                : owner?.status === 'active'
+                ? <ToggleRight size={24} className="text-green" />
+                : <ToggleLeft size={24} className="text-amber" />
+              }
             </button>
           </div>
         </div>
       </nav>
+
+      {/* Soft lock notice */}
+      {isLocked && (
+        <div className="bg-red/10 border-b border-red/20 px-4 py-3 max-w-2xl mx-auto">
+          <p className="text-sm text-red font-medium text-center">
+            {t('soft_lock.message', {
+              time: softLockExpiry.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            })}
+          </p>
+        </div>
+      )}
 
       {/* Stats bar */}
       {owner && (
@@ -112,6 +204,17 @@ export default function DashboardJobs() {
       )}
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        {/* Reliability score panel */}
+        {hasEnoughData && (
+          <ReliabilityScore
+            score={score}
+            grade={grade}
+            acceptanceRate={acceptanceRate}
+            completionRate={completionRate}
+            hasEnoughData={hasEnoughData}
+          />
+        )}
+
         {/* Tab bar */}
         <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
           {TABS.map(tab => (
@@ -136,7 +239,7 @@ export default function DashboardJobs() {
         {/* Refresh */}
         <div className="flex justify-end">
           <button
-            onClick={fetchJobs}
+            onClick={() => { fetchJobs(); refetchReliability() }}
             className="flex items-center gap-1.5 text-sm text-violet hover:text-violet/70 transition-colors min-h-[44px] px-2"
           >
             <RefreshCw size={14} /> {t('dashboard.refresh')}
@@ -156,7 +259,15 @@ export default function DashboardJobs() {
         ) : (
           <div className="space-y-4">
             {filteredJobs.map(job => (
-              <JobCard key={job.id} job={job} onRefresh={fetchJobs} />
+              <div key={job.id} className="space-y-1">
+                {/* SLA countdown shown only on submitted jobs */}
+                {job.status === 'submitted' && job.sla_deadline && (
+                  <div className="flex justify-end px-1">
+                    <SLACountdown deadline={job.sla_deadline} />
+                  </div>
+                )}
+                <JobCard job={job} onRefresh={fetchJobs} />
+              </div>
             ))}
           </div>
         )}

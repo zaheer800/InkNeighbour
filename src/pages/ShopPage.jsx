@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, Printer } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Printer, Zap, Clock, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, getCountry } from '../lib/countries'
@@ -23,7 +23,8 @@ export default function ShopPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
 
-  const [shop, setShop] = useState(null)
+  const [shop, setShop] = useState(null)          // society row with owners join
+  const [reliability, setReliability] = useState(null)
   const [loading, setLoading] = useState(true)
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -40,14 +41,24 @@ export default function ShopPage() {
   useEffect(() => {
     supabase
       .from('societies')
-      .select(`slug, name, owners!inner(id, name, shop_name, status, bw_rate, color_rate, delivery_fee, upi_id, accept_cash, country_code, phone, feedback(star_rating))`)
+      .select(`id, slug, name, owners!inner(id, name, shop_name, status, bw_rate, color_rate, delivery_fee, upi_id, accept_cash, country_code, phone, max_active_jobs, feedback(star_rating))`)
       .eq('slug', slug)
       .single()
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (error || !data) { setLoading(false); return }
         setShop(data)
-        // Set default payment method
+
         const owner = data.owners[0]
+        if (owner?.id) {
+          const { data: rel } = await supabase
+            .from('owner_reliability')
+            .select('reliability_score, active_jobs_count, max_active_jobs, avg_response_minutes')
+            .eq('owner_id', owner.id)
+            .single()
+          setReliability(rel || null)
+        }
+
+        // Set default payment method
         const methods = getPaymentMethods(owner.country_code, owner)
         if (methods.length > 0) setForm(f => ({ ...f, payment_method: methods[0].id }))
         setLoading(false)
@@ -73,6 +84,30 @@ export default function ShopPage() {
   const ratePerPage = getRatePerPage(form.print_type, owner)
   const pages = form.pageCount || 1
   const breakdown = getPriceBreakdown(pages, form.copies, ratePerPage, owner.delivery_fee)
+
+  // Job limit check: rely on server-side view
+  const activeCount = reliability?.active_jobs_count ?? 0
+  const maxJobs = reliability?.max_active_jobs ?? owner.max_active_jobs ?? 3
+  const isAtJobLimit = activeCount >= maxJobs
+
+  // Transparency signals
+  const avgMins = reliability?.avg_response_minutes
+    ? parseFloat(reliability.avg_response_minutes)
+    : null
+  const reliabilityScore = reliability?.reliability_score
+    ? parseFloat(reliability.reliability_score)
+    : null
+
+  function getTransparencySignal() {
+    if (isAtJobLimit) return { type: 'busy', icon: Users }
+    if (avgMins !== null) {
+      if (avgMins <= 5) return { type: 'fast', icon: Zap }
+      if (avgMins <= 12) return { type: 'normal', icon: Clock }
+      return { type: 'slow', icon: Clock }
+    }
+    return null
+  }
+  const signal = getTransparencySignal()
 
   function setField(field, value) {
     setForm(f => ({ ...f, [field]: value }))
@@ -106,7 +141,6 @@ export default function ShopPage() {
       const jobId = crypto.randomUUID()
       let filePath = null
       if (form.file) {
-        const ext = form.file.name.split('.').pop()
         filePath = `${jobId}/${form.file.name}`
         const { error: uploadErr } = await supabase.storage
           .from('job-files')
@@ -118,14 +152,14 @@ export default function ShopPage() {
       const { count } = await supabase.from('jobs').select('id', { count: 'exact', head: true })
       const jobNumber = `INK-${String((count || 0) + 1).padStart(4, '0')}`
 
-      // 3. Insert job
+      // 3. Insert job — society_id comes from the shop (society) row
       const { data: job, error: jobErr } = await supabase
         .from('jobs')
         .insert({
           id: jobId,
           job_number: jobNumber,
           owner_id: owner.id,
-          society_id: null, // we'll update this
+          society_id: shop.id,   // fixed: use the resolved society ID
           customer_name: form.customer_name,
           customer_flat: form.customer_flat,
           customer_phone: form.customer_phone || null,
@@ -165,6 +199,27 @@ export default function ShopPage() {
     )
   }
 
+  // Owner is at active job limit — show busy notice instead of order form
+  if (isAtJobLimit) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center px-4">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="w-16 h-16 rounded-full bg-amber/10 flex items-center justify-center mx-auto">
+            <Users size={32} className="text-amber" />
+          </div>
+          <h1 className="font-display text-2xl font-bold text-ink">{owner.shop_name || shop.name + ' Print Shop'}</h1>
+          <p className="text-lg text-ink font-semibold">{t('transparency.busy')}</p>
+          <p className="text-muted text-base">{t('job_limit.reached')}</p>
+          <p className="text-sm text-muted">
+            {avgMins !== null
+              ? t('transparency.try_again_avg', { minutes: Math.round(avgMins) })
+              : t('transparency.try_again_later')}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-bg">
       {/* Shop header */}
@@ -180,6 +235,22 @@ export default function ShopPage() {
             </span>
           </div>
           {rating && <StarDisplay rating={parseFloat(rating.avg)} count={rating.count} className="text-white" />}
+
+          {/* Transparency signal */}
+          {signal && (
+            <div className={[
+              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mt-1',
+              signal.type === 'fast'   ? 'bg-green/20 text-green-100'  :
+              signal.type === 'slow'   ? 'bg-amber/20 text-amber-100'  :
+              'bg-white/10 text-white/80'
+            ].join(' ')}>
+              <signal.icon size={12} />
+              {signal.type === 'fast'   ? t('transparency.fast',   { minutes: Math.round(avgMins) }) :
+               signal.type === 'normal' ? t('transparency.normal', { minutes: Math.round(avgMins) }) :
+               signal.type === 'slow'   ? t('transparency.slow',   { minutes: Math.round(avgMins) }) :
+               t('transparency.busy')}
+            </div>
+          )}
 
           {/* Progress bar */}
           <div className="flex gap-2 mt-4">

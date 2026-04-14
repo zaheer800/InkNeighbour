@@ -287,5 +287,42 @@
   "pwa": {
     "ios_install_title": "Add to Home Screen",
     "ios_install_hint": "Tap the Share button below, then \"Add to Home Screen\" for the best experience."
+  },
+  "sla": {
+    "expires_in": "Accept in {{time}}",
+    "expired": "Expired"
+  },
+  "reliability": {
+    "score": "Reliability Score",
+    "acceptance_rate": "Accepted on time",
+    "completion_rate": "Jobs completed",
+    "building": "Building your score…",
+    "warning": "Your score is below 70%. If it stays low, your shop will be automatically paused for 24 hours."
+  },
+  "soft_lock": {
+    "active": "Shop is temporarily locked",
+    "message": "Your shop is paused due to low reliability. It will unlock at {{time}}."
+  },
+  "streak": {
+    "label": "streak"
+  },
+  "commitment": {
+    "title": "Ready to go live?",
+    "message": "When your shop is live, customers can send you print jobs. You are expected to accept or reject each job within 15 minutes.",
+    "point1": "Respond to every job within 15 minutes.",
+    "point2": "Missed jobs hurt your reliability score.",
+    "point3": "Three missed jobs in a row may pause your shop.",
+    "confirm": "Yes, go live →"
+  },
+  "transparency": {
+    "fast": "Usually responds in {{minutes}} min",
+    "normal": "Usually responds in {{minutes}} min",
+    "slow": "Currently slow to respond (~{{minutes}} min)",
+    "busy": "Owner is currently busy",
+    "try_again_avg": "Average job takes {{minutes}} min. Try again soon!",
+    "try_again_later": "Please try again in a little while."
+  },
+  "job_limit": {
+    "reached": "This printer has reached its job limit. Please try again once a current job is complete."
   }
 }
