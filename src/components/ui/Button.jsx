@@ -19,12 +19,13 @@ const sizes = {
 }
 
 const Button = forwardRef(function Button(
-  { variant = 'primary', size = 'md', className = '', disabled, loading, children, ...props },
+  { variant = 'primary', size = 'md', className = '', disabled, loading, type = 'button', children, ...props },
   ref
 ) {
   return (
     <button
       ref={ref}
+      type={type}
       disabled={disabled || loading}
       className={[
         'inline-flex items-center justify-center gap-2 rounded-[14px] font-bold',

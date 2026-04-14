@@ -1,22 +1,27 @@
-import { forwardRef } from 'react'
+import { forwardRef, useId } from 'react'
 
 /**
  * Elder-friendly input — min 52px height, 18px+ font, clear label.
+ * Uses useId for accessible label/input association (htmlFor + id).
  */
 const Input = forwardRef(function Input(
-  { label, error, hint, className = '', wrapperClassName = '', ...props },
+  { label, error, hint, className = '', wrapperClassName = '', id: idProp, ...props },
   ref
 ) {
+  const generatedId = useId()
+  const id = idProp || generatedId
+
   return (
     <div className={`flex flex-col gap-1.5 ${wrapperClassName}`}>
       {label && (
-        <label className="text-base font-semibold text-ink">
+        <label htmlFor={id} className="text-base font-semibold text-ink">
           {label}
           {props.required && <span className="text-red ml-1">*</span>}
         </label>
       )}
       <input
         ref={ref}
+        id={id}
         className={[
           'w-full min-h-[52px] px-4 py-3 rounded-xl border text-base text-ink',
           'placeholder:text-muted bg-surface',
