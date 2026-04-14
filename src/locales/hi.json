@@ -1,0 +1,18 @@
+{
+  "_note": "Hindi translations — Phase 2. Keys must match en.json exactly.",
+  "common": {
+    "app_name": "InkNeighbour",
+    "tagline": "प्रिंट करो. डिलीवर करो. हो गया।",
+    "close": "बंद करें",
+    "copy": "कॉपी करें",
+    "or": "या",
+    "back": "वापस",
+    "next": "आगे",
+    "submit": "जमा करें",
+    "save": "बदलाव सेव करें",
+    "cancel": "रद्द करें",
+    "loading": "लोड हो रहा है...",
+    "retry": "फिर कोशिश करें",
+    "step_of": "चरण {{current}} / {{total}}"
+  }
+}
