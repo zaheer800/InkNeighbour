@@ -1,9 +1,9 @@
 # InkNeighbour — Product Requirements Document
-**Version:** 1.4  
+**Version:** 1.5  
 **Owner:** Zaheer (Zakapedia)  
 **URL:** inkneighbour.zakapedia.in  
 **Stack:** React + Vite · Supabase · Vercel  
-**Status:** Phase 1 — Build Ready
+**Status:** Phase 1 — Implemented (171 tests passing)
 
 ---
 
@@ -220,20 +220,26 @@ Price shown to Customer before they confirm order. No hidden fees.
 ### 4.6 Job Lifecycle
 
 ```
-submitted → accepted → printing → delivered
+submitted → accepted → printing → delivered → feedback_pending → feedback_done
                 ↓
             cancelled
 ```
 
+Status transitions are **one-way**. Never move backwards.
+
 | Status | Triggered by | Meaning |
 |---|---|---|
-| `submitted` | Customer | Order placed, awaiting Owner action |
-| `accepted` | Owner | Owner acknowledged the job |
-| `printing` | Owner | Document is being printed |
-| `delivered` | Owner | Printout handed to customer |
-| `cancelled` | Owner or Customer | Job cancelled |
-| `feedback_pending` | System | Delivered, feedback not yet submitted (triggered 24hrs after `delivered`) |
-| `feedback_done` | Customer | Customer has submitted feedback |
+| `submitted` | Customer | Order placed, awaiting Owner action. SLA deadline = created_at + 15 min. |
+| `accepted` | Owner | Owner acknowledged the job within SLA. |
+| `printing` | Owner | Document is being printed. |
+| `delivered` | Owner | Printout handed to customer. File auto-deleted from storage. |
+| `cancelled` | System / Owner | Job cancelled. File auto-deleted from storage. Auto-triggered on SLA expiry. |
+| `feedback_pending` | Owner (manual) | Delivered, feedback link shared with customer. |
+| `feedback_done` | Customer | Customer has submitted feedback. Immutable. |
+
+**SLA auto-cancellation:** If a job stays in `submitted` for more than 15 minutes without the Owner accepting, it is automatically moved to `cancelled`. This happens in two places:
+1. **Client-side:** `useJobs` hook checks on every dashboard load and cancels expired jobs before rendering.
+2. **Server-side:** The `check-sla` Edge Function runs every 1–5 minutes and catches anything the dashboard missed.
 
 ### 4.7 Customer Feedback
 
@@ -285,13 +291,95 @@ submitted → accepted → printing → delivered
 - URL is valid for 7 days after delivery
 - After 7 days → link expires, feedback no longer accepted
 
-### 4.8 Monetisation (Phase 1)
+### 4.8 Owner Behaviour Control System
+
+To maintain service quality and protect customers from unresponsive Owners, the platform enforces the following behaviour mechanisms. All are active in Phase 1.
+
+#### Acceptance SLA (Service Level Agreement)
+
+- Every submitted job has a **15-minute acceptance window** (`sla_deadline = created_at + 15 min`).
+- The SLA deadline is set automatically by a Postgres trigger on job INSERT.
+- A live countdown timer (`SLACountdown` component) is shown on each pending job card in the dashboard — turns amber at <5 minutes, red at <3 minutes.
+- At 10 minutes and 5 minutes, the `check-sla` Edge Function sends push reminders to the Owner.
+
+#### Auto-Cancellation
+
+- Jobs not accepted by `sla_deadline` are automatically cancelled.
+- Cancellation happens client-side on dashboard load (via `useJobs`) and server-side via the `check-sla` Edge Function.
+- Auto-cancelled jobs follow the normal cancellation path: file deleted, streak reset.
+
+#### Reliability Score
+
+The platform tracks each Owner's performance with a composite score:
+
+```
+Acceptance Rate = jobs accepted within SLA / total jobs with SLA (%)
+Completion Rate = delivered jobs / accepted jobs (%)
+Reliability Score = (Acceptance Rate + Completion Rate) / 2
+```
+
+- Score is computed in Postgres via the `owner_reliability` VIEW and fetched by the `useReliability` hook.
+- Displayed in the dashboard once the Owner has ≥ 5 jobs with SLA tracking.
+- Colour-coded: **green** ≥ 90%, **amber** 70–89%, **red** < 70%.
+
+#### Soft Lock
+
+- When reliability drops below **70%** after an auto-cancellation, the Owner's shop is automatically paused for **24 hours** (`soft_lock_until = now() + 24h`).
+- The `apply_soft_lock()` Postgres function handles this atomically.
+- Owners cannot toggle back to live while `soft_lock_until > now()`. The toggle button shows a lock icon.
+- A banner is shown in the dashboard explaining the lock and when it expires.
+
+#### Streak
+
+- Consecutive on-time accepted + delivered jobs increment the Owner's `streak` counter.
+- A streak resets to 0 on any missed SLA or cancellation.
+- Shown as a flame badge (🔥 N) in the dashboard navbar when streak > 0.
+
+#### Job Limit
+
+- Each Owner has a configurable maximum of **3 concurrent active jobs** (`max_active_jobs`).
+- Active jobs = any job in `submitted`, `accepted`, or `printing` status.
+- If the Owner is at their limit, the shop page shows a **"Currently busy"** screen instead of the order form — customers are told to try again shortly.
+
+#### Pre-Commitment Prompt
+
+- Each time an Owner toggles their shop from paused → live, a modal appears confirming the 15-minute SLA commitment before the toggle takes effect.
+- Prevents accidental go-live (e.g., tapping the toggle while distracted).
+
+#### Customer Transparency Signals
+
+The shop page displays real-time signals to customers based on the Owner's `avg_response_minutes`:
+- **Fast:** "Usually responds in X min" (green badge, ≤ 5 min average)
+- **Normal:** "Usually responds in X min" (neutral badge, 5–12 min average)
+- **Slow:** "Currently slow to respond (~X min)" (amber badge, > 12 min average)
+- **Busy:** "Owner is currently busy" (shown when at job limit)
+
+#### Database Changes (Migration 004)
+
+New columns on `jobs`: `sla_deadline TIMESTAMPTZ`, `accepted_at TIMESTAMPTZ`, `delivered_at TIMESTAMPTZ`
+
+New columns on `owners`: `max_active_jobs INTEGER DEFAULT 3`, `soft_lock_until TIMESTAMPTZ`, `streak INTEGER DEFAULT 0`, `avg_response_minutes NUMERIC`
+
+New Postgres objects:
+- `owner_reliability` VIEW — computes all metrics per owner
+- `set_sla_deadline` trigger — sets deadline on INSERT
+- `track_job_timestamps` trigger — stamps accepted_at/delivered_at, updates streak and rolling avg
+- `apply_soft_lock(owner_id)` function — pauses shop + sets lock expiry
+
+New Edge Function: `supabase/functions/check-sla/index.ts` — auto-cancel + push reminders + soft lock enforcement.
+
+### 4.9 Monetisation (Phase 1)
 
 - **Phase 1:** Platform is free. No subscription, no commission.
 - **Phase 2:** ₹99/month subscription per Owner. Non-payment → shop auto-deactivates.
 - **Phase 3:** Optional online payments via Stripe/Razorpay with platform commission (10%).
 
 Subscription billing via Razorpay Subscriptions (India) or Stripe Billing (global) — architecture stubbed in Phase 1, not active.
+
+`platform_config` rows relevant to behaviour system (all set in migration 004):
+- `sla_minutes` = 15
+- `soft_lock_threshold` = 70
+- `max_active_jobs` = 3
 
 ---
 
@@ -418,16 +506,25 @@ Subscription billing via Razorpay Subscriptions (India) or Stripe Billing (globa
 **Purpose:** Central command for the Owner. See and act on all print jobs.
 
 **Header:**
-- Shop name + live/paused toggle
-- Notification bell
+- Shop name + live/paused toggle (shows lock icon if soft-locked)
+- Streak flame badge (🔥 N) when streak > 0
+- Notification bell (enable push)
+- Status dot: green (active) / amber (paused) / red lock (soft-locked)
+
+**Soft lock banner:** Shown below the navbar when `soft_lock_until` is in the future. Displays unlock time.
 
 **Stats bar:**
 - Jobs today
 - Earnings this week
 - Earnings this month
 
+**Reliability Score panel:** Shown below stats bar once ≥ 5 jobs with SLA exist.
+- Composite score (green/amber/red)
+- Acceptance rate + completion rate breakdown
+- Warning message if score < 70%
+
 **Job tabs:**
-- Pending | Printing | Delivered | Cancelled
+- Pending | Accepted | Printing | Delivered | Cancelled
 
 **Per Job Card:**
 - Job ID + timestamp
@@ -436,12 +533,15 @@ Subscription billing via Razorpay Subscriptions (India) or Stripe Billing (globa
 - Print type (B&W/Colour) + copies + paper size
 - Total amount + payment method
 - Status badge
+- **SLA countdown** shown above card for `submitted` jobs (amber <5 min, red <3 min, "Expired" when past)
 
 **Actions per job status:**
 - `submitted` → [Download File] [Accept Job] [Cancel]
 - `accepted` → [Download File] [Mark as Printing]
 - `printing` → [Mark as Delivered]
 - `delivered` → [View Details]
+
+**Toggle to live:** Shows `PreCommitmentPrompt` modal before activating. Owner must confirm 15-minute SLA commitment. Blocked entirely if `soft_lock_until > now()`.
 
 **Empty state:** "No pending jobs. Share your shop link to get started! 📋"
 
@@ -492,12 +592,19 @@ Subscription billing via Razorpay Subscriptions (India) or Stripe Billing (globa
 
 **Purpose:** The Customer-facing order page. Accessible via Owner's shared link or search results.
 
+**Pre-check — Job limit:** Before rendering the order form, the shop page fetches the `owner_reliability` view. If `active_jobs_count >= max_active_jobs`, a **"Currently busy"** screen is shown instead of the order form, with the Owner's average response time and a "try again" message.
+
 **Header:**
 - Shop name: "[Society Name] Print Shop"
 - Owner first name: "Managed by [Name]"
 - Rates displayed clearly: B&W ₹X/page · Colour ₹X/page · Delivery ₹X
 - Star rating: ⭐ 4.8 · 24 ratings (shown only if ≥ 3 ratings exist)
 - Open/Closed status
+- **Transparency signal badge** (shown below ratings):
+  - "Usually responds in X min" (green, avg ≤ 5 min)
+  - "Usually responds in X min" (neutral, avg 5–12 min)
+  - "Currently slow to respond (~X min)" (amber, avg > 12 min)
+  - "Owner is currently busy" (when at job limit)
 
 **Order Form:**
 
@@ -676,45 +783,54 @@ societies (
 
 -- Owners
 owners (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       UUID REFERENCES auth.users(id),
-  name          TEXT NOT NULL,
-  phone         TEXT,
-  flat_number   TEXT,
-  society_id    UUID UNIQUE REFERENCES societies(id),  -- UNIQUE enforces 1 owner/society
-  shop_name     TEXT,
-  status        TEXT DEFAULT 'active',                 -- 'active', 'paused', 'inactive'
-  bw_rate       INTEGER NOT NULL DEFAULT 200,          -- paise (₹2.00)
-  color_rate    INTEGER NOT NULL DEFAULT 500,          -- paise (₹5.00)
-  delivery_fee  INTEGER DEFAULT 800,                   -- paise (₹8.00)
-  upi_id        TEXT,
-  accept_cash   BOOLEAN DEFAULT true,
-  country_code  TEXT REFERENCES countries(code) DEFAULT 'IN',
-  created_at    TIMESTAMPTZ DEFAULT now()
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id              UUID REFERENCES auth.users(id),
+  name                 TEXT NOT NULL,
+  phone                TEXT,
+  flat_number          TEXT,
+  society_id           UUID UNIQUE REFERENCES societies(id),  -- UNIQUE enforces 1 owner/society
+  shop_name            TEXT,
+  status               TEXT DEFAULT 'active',                 -- 'active', 'paused', 'inactive'
+  bw_rate              INTEGER NOT NULL DEFAULT 200,          -- paise (₹2.00)
+  color_rate           INTEGER NOT NULL DEFAULT 500,          -- paise (₹5.00)
+  delivery_fee         INTEGER DEFAULT 800,                   -- paise (₹8.00)
+  upi_id               TEXT,
+  accept_cash          BOOLEAN DEFAULT true,
+  country_code         TEXT REFERENCES countries(code) DEFAULT 'IN',
+  -- Behaviour system columns (migration 004)
+  max_active_jobs      INTEGER NOT NULL DEFAULT 3,
+  soft_lock_until      TIMESTAMPTZ,                          -- NULL = not locked
+  streak               INTEGER NOT NULL DEFAULT 0,
+  avg_response_minutes NUMERIC(6,2),                         -- rolling average, updated by trigger
+  created_at           TIMESTAMPTZ DEFAULT now()
 )
 
 -- Jobs
 jobs (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_number    TEXT UNIQUE NOT NULL,      -- 'INK-0042'
-  owner_id      UUID REFERENCES owners(id),
-  society_id    UUID REFERENCES societies(id),
-  customer_name TEXT NOT NULL,
-  customer_flat TEXT NOT NULL,
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_number     TEXT UNIQUE NOT NULL,      -- 'INK-0042'
+  owner_id       UUID REFERENCES owners(id),
+  society_id     UUID REFERENCES societies(id),
+  customer_name  TEXT NOT NULL,
+  customer_flat  TEXT NOT NULL,
   customer_phone TEXT,
-  file_path     TEXT,                      -- Supabase storage path
-  file_name     TEXT,
-  page_count    INTEGER,
-  print_type    TEXT NOT NULL,             -- 'bw', 'color'
-  paper_size    TEXT DEFAULT 'A4',         -- 'A4', 'Letter', 'Legal', 'A3'
-  copies        INTEGER DEFAULT 1,
-  total_amount  INTEGER NOT NULL,          -- smallest currency unit
-  payment_method TEXT NOT NULL,            -- 'upi', 'cash'
-  payment_status TEXT DEFAULT 'pending',   -- 'pending', 'paid'
-  status        TEXT DEFAULT 'submitted',  -- 'submitted','accepted','printing','delivered','cancelled'
-  notes         TEXT,
-  created_at    TIMESTAMPTZ DEFAULT now(),
-  updated_at    TIMESTAMPTZ DEFAULT now()
+  file_path      TEXT,                      -- Supabase storage path
+  file_name      TEXT,
+  page_count     INTEGER,
+  print_type     TEXT NOT NULL,             -- 'bw', 'color'
+  paper_size     TEXT DEFAULT 'A4',         -- 'A4', 'Letter', 'Legal', 'A3'
+  copies         INTEGER DEFAULT 1,
+  total_amount   INTEGER NOT NULL,          -- smallest currency unit
+  payment_method TEXT NOT NULL,             -- 'upi', 'cash'
+  payment_status TEXT DEFAULT 'pending',    -- 'pending', 'paid'
+  status         TEXT DEFAULT 'submitted',  -- 'submitted','accepted','printing','delivered','cancelled','feedback_pending','feedback_done'
+  notes          TEXT,
+  -- Behaviour system columns (migration 004)
+  sla_deadline   TIMESTAMPTZ,              -- set by trigger on INSERT: created_at + 15 min
+  accepted_at    TIMESTAMPTZ,              -- stamped by trigger when status → 'accepted'
+  delivered_at   TIMESTAMPTZ,             -- stamped by trigger when status → 'delivered'
+  created_at     TIMESTAMPTZ DEFAULT now(),
+  updated_at     TIMESTAMPTZ DEFAULT now()
 )
 
 -- Feedback
@@ -746,8 +862,9 @@ platform_config (
   value         TEXT,
   updated_at    TIMESTAMPTZ DEFAULT now()
 )
--- Rows: 'default_bw_rate', 'default_color_rate', 'default_delivery_fee',
---       'commission_percent', 'subscription_fee', 'subscription_active'
+-- Rows (migration 001): 'default_bw_rate', 'default_color_rate', 'default_delivery_fee',
+--                        'commission_percent', 'subscription_fee', 'subscription_active'
+-- Rows (migration 004): 'sla_minutes' (15), 'soft_lock_threshold' (70), 'max_active_jobs' (3)
 ```
 
 ### 6.2 Row Level Security (RLS)
@@ -765,14 +882,28 @@ societies: Public read, authenticated write only
 platform_config: Admin only (via service role key)
 ```
 
-**Computed fields on `owners` (derived from `feedback` table):**
+**Computed fields on `owners` (derived from `feedback` table — `owner_stats` VIEW):**
 ```sql
 avg_star_rating    -- AVG(star_rating) from feedback WHERE owner_id
 total_ratings      -- COUNT(*) from feedback WHERE owner_id
 on_time_pct        -- AVG(on_time::int) * 100
 quality_pct        -- AVG(quality_good::int) * 100
 ```
-These can be computed via a Supabase view or materialised on the `owners` row and updated on each feedback insert via a Postgres trigger.
+
+**Reliability metrics — `owner_reliability` VIEW (migration 004):**
+```sql
+owner_id              -- links to owners.id
+acceptance_rate       -- jobs accepted within SLA / total jobs with SLA (%)
+completion_rate       -- delivered jobs / accepted jobs (%)
+reliability_score     -- (acceptance_rate + completion_rate) / 2
+active_jobs_count     -- current jobs in submitted/accepted/printing status
+total_jobs            -- all-time job count for this owner
+streak                -- from owners.streak column
+avg_response_minutes  -- from owners.avg_response_minutes column
+soft_lock_until       -- from owners.soft_lock_until column
+max_active_jobs       -- from owners.max_active_jobs column
+```
+Used by `useReliability` hook (dashboard) and fetched on the shop page for transparency signals and job-limit enforcement.
 
 ### 6.3 Storage Buckets
 
@@ -1435,11 +1566,21 @@ export const sendPushToOwner = async (ownerId: string, payload: object) => {
 | Event | To | Title | Body |
 |---|---|---|---|
 | New job submitted | Owner | "New print job! 🖨️" | "Priya · Flat 304 · 4 pages · ₹20" |
+| SLA 10-minute warning | Owner | "Job waiting — 10 min left" | "INK-0042 needs response in 10 minutes or will be auto-cancelled" |
+| SLA 5-minute warning | Owner | "⚠️ Urgent — 5 min left!" | "INK-0042 will be auto-cancelled in 5 minutes!" |
 | Job cancelled by customer | Owner | "Job cancelled" | "Order #INK-0042 was cancelled" |
+| Soft lock applied | Owner | "Your shop has been paused" | "Reliability dropped to X%. Shop will auto-unpause in 24 hours." |
 | New feedback received | Owner | "New feedback ⭐" | "Priya rated your service 5 stars" |
 | Low rating alert | Admin | "Shop flagged ⚠️" | "Green Valley Ph1 dropped below 3.0" |
 
 Customer notifications are handled via WhatsApp links — customers don't log in so there is no push subscription to store.
+
+### 12.5 Edge Functions
+
+| Function | Trigger | Purpose |
+|---|---|---|
+| `notify` | Called on job insert (manual or via webhook) | Sends push to Owner for new jobs |
+| `check-sla` | Scheduled every 1–5 min (cron / external trigger) | Auto-cancels expired jobs, sends SLA reminders at 10-min and 5-min, applies soft lock when reliability < 70% |
 
 ---
 
@@ -1481,6 +1622,12 @@ Sitemap auto-generated from active society slugs.
 | File too large (>10MB) | "Your file is too large. Please compress it and try again." |
 | Page count detection fails | Show "We couldn't detect the page count. The owner will confirm before printing." |
 | Shop is paused | Customer sees: "This shop is temporarily closed. Try again later." |
+| Shop at job limit | Customer sees busy screen: "Owner is currently busy. Please try again soon." |
+| Feedback URL expired | "This link has expired. Thank you for your feedback!" (friendly, not an error) |
+| Feedback already submitted | "Feedback has already been submitted for this order." |
+| Owner soft-locked | Dashboard shows lock icon + banner: "Shop paused due to low reliability. Unlocks at [time]." |
+| Owner tries to go live while locked | Toggle blocked; toast: "Shop is temporarily locked" |
+| SLA expired (client-side detection) | Job silently moved to cancelled on next dashboard load |
 | Network error | Toast with retry option |
 | Invalid slug | 404 page with link back to home |
 
@@ -1488,24 +1635,35 @@ Sitemap auto-generated from active society slugs.
 
 ## 14. Phase Roadmap
 
-### Phase 1 — MVP (Build Now)
-- [ ] Landing page with pincode search
-- [ ] Owner registration (3 steps)
-- [ ] Society creation with fuzzy match
-- [ ] Owner dashboard (job queue, tabs, actions)
-- [ ] Earnings summary
-- [ ] Customer order form (upload + settings + price)
-- [ ] Order confirmation with UPI QR
-- [ ] Customer feedback form (`/feedback/:job-id`)
-- [ ] Owner feedback dashboard tab
-- [ ] Star rating shown on shop page and search results
-- [ ] Admin flagging for low-rated shops
-- [ ] Platform admin panel (basic)
-- [ ] File auto-delete on delivery AND cancellation (keep storage near zero)
-- [ ] PWA setup (vite-plugin-pwa, manifest, service worker)
-- [ ] iOS install banner (Safari instruction prompt)
-- [ ] Push notifications for Owner (VAPID + Supabase Edge Function)
-- [ ] Global-ready architecture (i18n, currency, country config)
+### Phase 1 — MVP (Implemented ✅)
+- [x] Landing page with pincode search
+- [x] Owner registration (3 steps)
+- [x] Society creation with fuzzy match (Fuse.js, threshold 0.25)
+- [x] Owner dashboard (job queue, 5 tabs, actions)
+- [x] Earnings summary with cartridge cost and net profit
+- [x] Customer order form (upload + settings + price, 4-step wizard)
+- [x] Order confirmation with UPI QR / cash instructions
+- [x] Customer feedback form (`/feedback/:job-id`, 7-day expiry)
+- [x] Owner feedback dashboard tab
+- [x] Star rating shown on shop page and search results (≥3 ratings)
+- [x] Platform admin panel (basic — shops, societies, defaults)
+- [x] File auto-delete on delivery AND cancellation
+- [x] PWA setup (vite-plugin-pwa, manifest, Workbox service worker)
+- [x] iOS install banner component
+- [x] Push notifications for Owner (VAPID + `notify` Edge Function)
+- [x] Global-ready architecture (i18n, currency, country config)
+- [x] Owner Behaviour Control System:
+  - [x] 15-minute SLA acceptance deadline (DB trigger)
+  - [x] Live SLA countdown in dashboard (amber/red/expired)
+  - [x] SLA reminder push notifications (10-min, 5-min via `check-sla` Edge Function)
+  - [x] Auto-cancellation of expired jobs (client-side + server-side)
+  - [x] Reliability score (acceptance rate + completion rate via `owner_reliability` VIEW)
+  - [x] Streak tracking (consecutive on-time deliveries)
+  - [x] Soft lock at < 70% reliability (24-hour auto-pause)
+  - [x] Job limit enforcement (default 3 concurrent active jobs)
+  - [x] Pre-commitment prompt on toggle-to-live
+  - [x] Customer transparency signals on shop page
+- [x] Test suite — 171 tests (Vitest + React Testing Library)
 
 ### Phase 2 — Growth
 - [ ] WATI WhatsApp automated messages (order confirmation, delivery, feedback request)
@@ -1544,6 +1702,9 @@ inkneighbour/
 │   │   ├── UploadZone.jsx
 │   │   ├── PriceBreakdown.jsx
 │   │   ├── StarRating.jsx
+│   │   ├── SLACountdown.jsx       ← Live SLA timer per job card
+│   │   ├── ReliabilityScore.jsx   ← Owner reliability badge + breakdown
+│   │   ├── PreCommitmentPrompt.jsx ← Modal before going live
 │   │   ├── IOSInstallBanner.jsx
 │   │   └── UPIQRCode.jsx
 │   ├── pages/
@@ -1586,22 +1747,33 @@ inkneighbour/
 │   │   └── hi.json            ← Hindi (Phase 2)
 │   ├── hooks/
 │   │   ├── useAuth.js
-│   │   ├── useOwner.js
-│   │   └── useJobs.js
+│   │   ├── useOwner.js        ← includes soft lock enforcement + canAcceptNewJob()
+│   │   ├── useJobs.js         ← auto-cancels SLA-expired jobs on fetch
+│   │   └── useReliability.js  ← fetches owner_reliability VIEW; derives grade/isSoftLocked
+│   ├── test/
+│   │   ├── setup.js           ← vi.mock for supabase, i18next, router, sonner
+│   │   ├── lib/               ← pricing, slugify, countries, fuzzyMatch tests
+│   │   ├── payments/          ← upi, cash, router tests
+│   │   ├── notifications/     ← whatsapp tests
+│   │   ├── components/        ← Button, Input, Badge, Modal, StarRating, PriceBreakdown
+│   │   └── pages/             ← Landing, Login, FeedbackForm tests
 │   ├── App.jsx
 │   ├── main.jsx
 │   └── index.css
 ├── supabase/
 │   ├── functions/
-│   │   └── notify/
-│   │       └── index.ts       ← WATI / Twilio Edge Function (Phase 2)
-│   ├── migrations/
-│   │   ├── 001_initial_schema.sql
-│   │   ├── 002_feedback.sql           ← feedback table + trigger for owner rating
-│   │   └── 003_push_subscriptions.sql ← push_subscriptions table
-│   └── seed.sql               ← Country config + platform defaults
+│   │   ├── notify/
+│   │   │   └── index.ts       ← Push notification dispatcher
+│   │   └── check-sla/
+│   │       └── index.ts       ← Auto-cancel + SLA reminders + soft lock enforcer
+│   └── migrations/
+│       ├── 001_initial_schema.sql     ← Countries, Societies, Owners, Jobs, platform_config
+│       ├── 002_feedback.sql           ← Feedback table, owner_stats view, expiry trigger
+│       ├── 003_push_subscriptions.sql ← push_subscriptions table
+│       └── 004_behaviour_system.sql   ← SLA columns, reliability view, soft lock function
 ├── .env.example
 ├── vite.config.js
+├── vitest.config.js
 ├── tailwind.config.js
 ├── package.json
 └── README.md
