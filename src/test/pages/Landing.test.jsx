@@ -19,9 +19,10 @@ function renderLanding() {
 }
 
 describe('Landing page', () => {
-  it('renders the tagline', () => {
+  it('renders the hero tagline', () => {
     renderLanding()
-    expect(screen.getByText('landing.hero_title')).toBeInTheDocument()
+    // Hero title is hardcoded across multiple elements
+    expect(screen.getByText(/Print it\./i)).toBeInTheDocument()
   })
 
   it('renders the hero subtitle', () => {
@@ -34,14 +35,14 @@ describe('Landing page', () => {
     expect(screen.getByPlaceholderText('landing.pincode_placeholder')).toBeInTheDocument()
   })
 
-  it('renders the Find a Printer button', () => {
+  it('renders the Find button', () => {
     renderLanding()
-    expect(screen.getByRole('button', { name: /landing\.cta_find/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^find$/i })).toBeInTheDocument()
   })
 
-  it('Find a Printer button is disabled when pincode is empty', () => {
+  it('Find button is disabled when pincode is empty', () => {
     renderLanding()
-    expect(screen.getByRole('button', { name: /landing\.cta_find/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^find$/i })).toBeDisabled()
   })
 
   it('navigates to /find with pincode on form submit', () => {
@@ -52,9 +53,11 @@ describe('Landing page', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/find?pincode=400001')
   })
 
-  it('renders the Register CTA link', () => {
+  it('renders a link to /register', () => {
     renderLanding()
-    expect(screen.getByText('landing.cta_register')).toBeInTheDocument()
+    // Both nav and owner CTA section have links to /register
+    const registerLinks = screen.getAllByRole('link', { name: /register/i })
+    expect(registerLinks.length).toBeGreaterThan(0)
   })
 
   it('renders the How it Works section', () => {
@@ -74,14 +77,18 @@ describe('Landing page', () => {
     expect(screen.getByText('landing.owners_title')).toBeInTheDocument()
   })
 
-  it('renders the footer', () => {
+  it('renders the footer with current year', () => {
     renderLanding()
-    expect(screen.getByText(/InkNeighbour/)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(new Date().getFullYear()))).toBeInTheDocument()
   })
 
-  it('renders the app name in the navbar', () => {
+  it('renders Privacy Policy link in footer', () => {
     renderLanding()
-    // InkNeighbour is split between Ink and Neighbour text nodes
-    expect(screen.getAllByText(/InkNeighbour|Ink|Neighbour/i).length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: /privacy policy/i })).toBeInTheDocument()
+  })
+
+  it('renders Terms of Service link in footer', () => {
+    renderLanding()
+    expect(screen.getByRole('link', { name: /terms of service/i })).toBeInTheDocument()
   })
 })

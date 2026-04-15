@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Bell, RefreshCw, BarChart2, MessageSquare, Settings, ToggleLeft, ToggleRight, Flame, Lock } from 'lucide-react'
+import { Bell, RefreshCw, BarChart2, MessageSquare, Settings, ToggleLeft, ToggleRight, Flame, Lock, Clock, LogOut, ClipboardList } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../hooks/useAuth'
 import { useOwner } from '../../hooks/useOwner'
@@ -127,7 +127,12 @@ export default function DashboardJobs() {
               {owner?.shop_name || 'My Shop'}
             </p>
             <div className="flex items-center gap-2 mt-0.5">
-              {isLocked ? (
+              {owner?.status === 'pending' ? (
+                <>
+                  <Clock size={12} className="text-amber" />
+                  <span className="text-sm text-amber/90">{t('dashboard.pending_review')}</span>
+                </>
+              ) : isLocked ? (
                 <>
                   <Lock size={12} className="text-red" />
                   <span className="text-sm text-red/90">{t('soft_lock.active')}</span>
@@ -158,18 +163,28 @@ export default function DashboardJobs() {
             </button>
 
             <button
-              onClick={handleToggleClick}
-              disabled={toggling || isLocked}
-              className="p-2 text-white/60 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-40"
-              aria-label="Toggle shop status"
+              onClick={signOut}
+              className="p-2 text-white/60 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Sign out"
             >
-              {isLocked
-                ? <Lock size={22} className="text-red/70" />
-                : owner?.status === 'active'
-                ? <ToggleRight size={24} className="text-green" />
-                : <ToggleLeft size={24} className="text-amber" />
-              }
+              <LogOut size={20} />
             </button>
+
+            {owner?.status !== 'pending' && (
+              <button
+                onClick={handleToggleClick}
+                disabled={toggling || isLocked}
+                className="p-2 text-white/60 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-40"
+                aria-label="Toggle shop status"
+              >
+                {isLocked
+                  ? <Lock size={22} className="text-red/70" />
+                  : owner?.status === 'active'
+                  ? <ToggleRight size={24} className="text-green" />
+                  : <ToggleLeft size={24} className="text-amber" />
+                }
+              </button>
+            )}
           </div>
         </div>
       </nav>
@@ -204,8 +219,17 @@ export default function DashboardJobs() {
       )}
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        {/* Pending approval banner */}
+        {owner?.status === 'pending' && (
+          <div className="bg-amber/10 border border-amber/30 rounded-xl p-6 text-center space-y-3">
+            <Clock size={40} className="text-amber mx-auto" />
+            <h2 className="font-bold text-xl text-ink">{t('dashboard.pending_approval_title')}</h2>
+            <p className="text-muted">{t('dashboard.pending_approval_desc')}</p>
+          </div>
+        )}
+
         {/* Reliability score panel */}
-        {hasEnoughData && (
+        {owner?.status !== 'pending' && hasEnoughData && (
           <ReliabilityScore
             score={score}
             grade={grade}
@@ -215,70 +239,74 @@ export default function DashboardJobs() {
           />
         )}
 
-        {/* Tab bar */}
-        <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-          {TABS.map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={[
-                'flex-shrink-0 px-4 py-2 rounded-pill text-sm font-semibold transition-colors',
-                activeTab === tab
-                  ? 'bg-violet text-white'
-                  : 'bg-surface text-muted hover:bg-border'
-              ].join(' ')}
-            >
-              {TAB_LABELS[tab]}
-              <span className={`ml-1.5 text-xs ${activeTab === tab ? 'text-white/70' : 'text-muted'}`}>
-                ({jobs.filter(j => j.status === tab).length})
-              </span>
-            </button>
-          ))}
-        </div>
+        {/* Tab bar + job list — hidden until approved */}
+        {owner?.status !== 'pending' && (
+          <>
+            <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+              {TABS.map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={[
+                    'flex-shrink-0 px-4 py-2 rounded-pill text-sm font-semibold transition-colors',
+                    activeTab === tab
+                      ? 'bg-violet text-white'
+                      : 'bg-surface text-muted hover:bg-border'
+                  ].join(' ')}
+                >
+                  {TAB_LABELS[tab]}
+                  <span className={`ml-1.5 text-xs ${activeTab === tab ? 'text-white/70' : 'text-muted'}`}>
+                    ({jobs.filter(j => j.status === tab).length})
+                  </span>
+                </button>
+              ))}
+            </div>
 
-        {/* Refresh */}
-        <div className="flex justify-end">
-          <button
-            onClick={() => { fetchJobs(); refetchReliability() }}
-            className="flex items-center gap-1.5 text-sm text-violet hover:text-violet/70 transition-colors min-h-[44px] px-2"
-          >
-            <RefreshCw size={14} /> {t('dashboard.refresh')}
-          </button>
-        </div>
+            {/* Refresh */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => { fetchJobs(); refetchReliability() }}
+                className="flex items-center gap-1.5 text-sm text-violet hover:text-violet/70 transition-colors min-h-[44px] px-2"
+              >
+                <RefreshCw size={14} /> {t('dashboard.refresh')}
+              </button>
+            </div>
 
-        {/* Jobs list */}
-        {loading ? (
-          <p className="text-center text-muted py-12">{t('common.loading')}</p>
-        ) : filteredJobs.length === 0 ? (
-          <p className="text-center text-muted py-12">
-            {activeTab === 'submitted' ? t('dashboard.empty_pending') :
-             activeTab === 'printing' ? t('dashboard.empty_printing') :
-             activeTab === 'delivered' ? t('dashboard.empty_delivered') :
-             t('dashboard.empty_cancelled')}
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {filteredJobs.map(job => (
-              <div key={job.id} className="space-y-1">
-                {/* SLA countdown shown only on submitted jobs */}
-                {job.status === 'submitted' && job.sla_deadline && (
-                  <div className="flex justify-end px-1">
-                    <SLACountdown deadline={job.sla_deadline} />
+            {/* Jobs list */}
+            {loading ? (
+              <p className="text-center text-muted py-12">{t('common.loading')}</p>
+            ) : filteredJobs.length === 0 ? (
+              <p className="text-center text-muted py-12">
+                {activeTab === 'submitted' ? t('dashboard.empty_pending') :
+                 activeTab === 'printing' ? t('dashboard.empty_printing') :
+                 activeTab === 'delivered' ? t('dashboard.empty_delivered') :
+                 t('dashboard.empty_cancelled')}
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {filteredJobs.map(job => (
+                  <div key={job.id} className="space-y-1">
+                    {job.status === 'submitted' && job.sla_deadline && (
+                      <div className="flex justify-end px-1">
+                        <SLACountdown deadline={job.sla_deadline} />
+                      </div>
+                    )}
+                    <JobCard job={job} onRefresh={fetchJobs} />
                   </div>
-                )}
-                <JobCard job={job} onRefresh={fetchJobs} />
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
 
       {/* Bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex z-30">
         {[
-          { to: '/dashboard', icon: null, label: 'Jobs', active: true },
+          { to: '/dashboard', icon: ClipboardList, label: 'Jobs', active: true },
           { to: '/dashboard/earnings', icon: BarChart2, label: 'Earnings' },
           { to: '/dashboard/feedback', icon: MessageSquare, label: 'Feedback' },
+          { to: '/dashboard/availability', icon: Clock, label: 'Hours' },
           { to: '/dashboard/settings', icon: Settings, label: 'Settings' }
         ].map(item => (
           <Link
@@ -289,8 +317,7 @@ export default function DashboardJobs() {
               item.active ? 'text-violet' : 'text-muted hover:text-ink'
             ].join(' ')}
           >
-            {item.icon && <item.icon size={20} />}
-            {!item.icon && <span className="text-base">📋</span>}
+            <item.icon size={20} />
             {item.label}
           </Link>
         ))}

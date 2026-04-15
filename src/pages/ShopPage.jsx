@@ -193,7 +193,9 @@ export default function ShopPage() {
           <Printer size={48} className="text-muted mx-auto" />
           <h1 className="font-display text-2xl font-bold text-ink">{owner.shop_name || shop.name + ' Print Shop'}</h1>
           <Badge status={owner.status} />
-          <p className="text-muted">{t('errors.shop_paused')}</p>
+          <p className="text-muted">
+            {owner.status === 'pending' ? t('errors.shop_pending') : t('errors.shop_paused')}
+          </p>
         </div>
       </div>
     )

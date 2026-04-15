@@ -23,8 +23,13 @@ export function useOwner() {
       .eq('user_id', user.id)
       .single()
 
-    if (error) setError(error)
-    else setOwner(data)
+    if (error) {
+      // PGRST116 = no row found — user exists in auth but has no owner record yet
+      // (e.g. registration failed mid-way). Treat as null owner, not a hard error.
+      if (error.code !== 'PGRST116') setError(error)
+    } else {
+      setOwner(data)
+    }
     setLoading(false)
   }, [user])
 
@@ -53,6 +58,9 @@ export function useOwner() {
    */
   const toggleStatus = useCallback(async () => {
     if (!owner) return { error: new Error('No owner record') }
+
+    // Cannot toggle until admin approves the shop
+    if (owner.status === 'pending') return { error: new Error('Shop awaiting admin approval') }
 
     // Prevent going live if soft-locked
     if (owner.status !== 'active' && owner.soft_lock_until) {

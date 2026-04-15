@@ -80,7 +80,7 @@
     "upi_id_placeholder": "e.g. yourname@upi",
     "accept_cash_label": "Accept cash on delivery",
     "shop_url_preview": "Your shop URL: {{url}}",
-    "launch_cta": "Launch My Shop 🚀",
+    "launch_cta": "Launch My Shop",
     "launching": "Launching...",
     "validation_phone": "Enter a valid 10-digit mobile number",
     "validation_email": "Enter a valid email address",
@@ -89,8 +89,11 @@
     "validation_rate_max": "Rate cannot exceed ₹{{max}}"
   },
   "success": {
-    "title": "Your shop is live! 🎉",
+    "title": "Your shop is live!",
     "desc": "Customers in {{society}} can now send you print jobs.",
+    "pending_title": "Registration submitted!",
+    "pending_desc": "Your shop is under review by our admin team. You will be notified once it is approved and ready to take orders.",
+    "url_preview": "Your shop URL (active after approval):",
     "share_prompt": "Share your shop link with your neighbours:",
     "share_whatsapp": "Share on WhatsApp",
     "copy_link": "Copy link",
@@ -120,11 +123,14 @@
     "tab_printing": "Printing",
     "tab_delivered": "Delivered",
     "tab_cancelled": "Cancelled",
-    "empty_pending": "No pending jobs. Share your shop link to get started! 📋",
+    "empty_pending": "No pending jobs. Share your shop link to get started.",
     "empty_printing": "No jobs being printed right now.",
     "empty_delivered": "No delivered jobs yet.",
     "empty_cancelled": "No cancelled jobs.",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "pending_review": "Pending review",
+    "pending_approval_title": "Awaiting admin approval",
+    "pending_approval_desc": "Your shop registration is under review. Our admin team will approve it shortly. Check back here — once approved, you will be able to go live and accept print jobs."
   },
   "earnings": {
     "title": "Earnings",
@@ -140,8 +146,8 @@
     "delivery_total": "Delivery collected",
     "cartridge_cost": "Cartridge cost (estimate)",
     "net_profit": "Net profit",
-    "profitable_msg": "Your printer paid for itself this month! 🎉",
-    "breakeven_msg": "Almost there — just a few more jobs to cover your ink 🖨️",
+    "profitable_msg": "Your printer paid for itself this month.",
+    "breakeven_msg": "Almost there — just a few more jobs to cover your ink.",
     "loss_msg": "Print more to cover your costs — share your link with neighbours!",
     "share_link": "Your shop link"
   },
@@ -233,6 +239,9 @@
     "jobs_today": "Jobs today",
     "gmv": "GMV this month",
     "all_shops": "All shops",
+    "pending_approvals": "Pending Approvals",
+    "approve": "Approve",
+    "reject": "Reject",
     "defaults": "Platform defaults",
     "bw_default": "Default B&W rate",
     "color_default": "Default Colour rate",
@@ -282,6 +291,7 @@
     "network": "Something went wrong. Please try again.",
     "shop_not_found": "Shop not found.",
     "shop_paused": "This shop is temporarily closed. Try again later.",
+    "shop_pending": "This shop is awaiting admin approval and is not yet open for orders.",
     "unauthorized": "Please log in to continue."
   },
   "pwa": {
@@ -324,5 +334,40 @@
   },
   "job_limit": {
     "reached": "This printer has reached its job limit. Please try again once a current job is complete."
+  },
+  "availability": {
+    "title": "Availability",
+    "subtitle": "Control when customers can place orders",
+    "current_status": "Current status",
+    "status_available": "Available",
+    "status_unavailable": "Unavailable",
+    "next_available": "Available at {{time}}",
+    "toggle_aria": "Toggle shop availability",
+    "now_live": "Your shop is now live!",
+    "now_paused": "Your shop is now paused.",
+    "override_title": "Shop temporarily paused",
+    "override_message": "Your shop was automatically paused due to missed orders. It will reopen at {{time}}.",
+    "override_active": "Your shop is paused until {{time}} due to missed orders.",
+    "override_active_short": "Cannot go live — shop is under automatic pause.",
+    "rapid_toggle": "Please wait {{seconds}} more seconds before toggling again.",
+    "explain_override": "System override: paused automatically due to missed jobs (highest priority)",
+    "explain_manual_on": "Manual ON: you are live and accepting orders",
+    "explain_manual_off": "Manual OFF: you have paused your shop",
+    "explain_schedule": "Schedule: availability follows your time slots below",
+    "schedule_title": "Opening Hours",
+    "add_slot": "Add slot",
+    "new_slot": "New time slot",
+    "day_label": "Day",
+    "from_label": "From",
+    "to_label": "To",
+    "save_slot": "Save slot",
+    "slot_added": "Time slot added.",
+    "slot_deleted": "Time slot removed.",
+    "slot_time_invalid": "End time must be after start time.",
+    "disable_slot": "Disable",
+    "enable_slot": "Enable",
+    "delete_slot": "Delete slot",
+    "no_schedule_title": "No opening hours set",
+    "no_schedule_desc": "Add time slots to let the schedule control your availability automatically."
   }
 }

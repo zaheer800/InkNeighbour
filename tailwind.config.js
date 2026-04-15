@@ -23,8 +23,8 @@ export default {
         border:  '#E5E7EB'
       },
       fontFamily: {
-        display: ['Syne', 'sans-serif'],
-        body:    ['Plus Jakarta Sans', 'sans-serif']
+        display: ['Space Grotesk', 'sans-serif'],
+        body:    ['Inter', 'sans-serif']
       },
       fontSize: {
         base: '18px'

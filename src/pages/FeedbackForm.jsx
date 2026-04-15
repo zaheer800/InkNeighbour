@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { ThumbsUp, ThumbsDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import StarRating from '../components/StarRating'
 import Button from '../components/ui/Button'
 
-const THUMB_BASE = 'flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 text-xl font-bold min-h-[80px] transition-colors cursor-pointer'
+const THUMB_BASE = 'flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 font-bold min-h-[80px] transition-colors cursor-pointer'
 
 export default function FeedbackForm() {
   const { jobId } = useParams()
@@ -144,14 +145,14 @@ export default function FeedbackForm() {
               onClick={() => setOnTime(true)}
               className={`${THUMB_BASE} ${onTime === true ? 'border-green bg-green/5 text-green' : 'border-border bg-bg text-muted'}`}
             >
-              <span className="text-3xl">👍</span>
+              <ThumbsUp size={28} />
               <span className="text-base">Yes</span>
             </button>
             <button
               onClick={() => setOnTime(false)}
               className={`${THUMB_BASE} ${onTime === false ? 'border-red bg-red/5 text-red' : 'border-border bg-bg text-muted'}`}
             >
-              <span className="text-3xl">👎</span>
+              <ThumbsDown size={28} />
               <span className="text-base">No</span>
             </button>
           </div>
@@ -165,14 +166,14 @@ export default function FeedbackForm() {
               onClick={() => setQualityGood(true)}
               className={`${THUMB_BASE} ${qualityGood === true ? 'border-green bg-green/5 text-green' : 'border-border bg-bg text-muted'}`}
             >
-              <span className="text-3xl">👍</span>
+              <ThumbsUp size={28} />
               <span className="text-base">Yes</span>
             </button>
             <button
               onClick={() => setQualityGood(false)}
               className={`${THUMB_BASE} ${qualityGood === false ? 'border-red bg-red/5 text-red' : 'border-border bg-bg text-muted'}`}
             >
-              <span className="text-3xl">👎</span>
+              <ThumbsDown size={28} />
               <span className="text-base">No</span>
             </button>
           </div>

@@ -178,7 +178,7 @@ postal_code, country_code, created_at
 ```sql
 id UUID PK, user_id (Supabase auth FK), name, phone,
 flat_number, society_id UNIQUE FK, shop_name,
-status (active|paused|inactive),
+status (pending|active|paused|inactive),
 bw_rate INT, color_rate INT, delivery_fee INT,  -- all in paise
 upi_id, accept_cash BOOL, country_code, created_at
 ```
@@ -317,7 +317,7 @@ border    #E5E7EB    Subtle borders
 ```
 
 ### Typography
-- **Fonts:** Syne (headings), Plus Jakarta Sans (body)
+- **Fonts:** Space Grotesk (headings), Inter (body)
 - **Base size:** 18px — larger than typical for elder-friendliness
 - **Headings:** 24px–40px, weight 700–800
 - **Min caption:** 14px

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle, Copy, ExternalLink } from 'lucide-react'
+import { Clock, Copy, ExternalLink } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import { buildShopShareLink } from '../../notifications/whatsapp'
 
@@ -31,19 +31,19 @@ export default function Success() {
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-4 py-16">
       <div className="max-w-md w-full space-y-6 text-center">
-        {/* Success icon */}
-        <div className="w-20 h-20 bg-green/15 rounded-xl flex items-center justify-center mx-auto">
-          <CheckCircle size={48} className="text-green" />
+        {/* Pending icon */}
+        <div className="w-20 h-20 bg-amber/15 rounded-xl flex items-center justify-center mx-auto">
+          <Clock size={48} className="text-amber" />
         </div>
 
         <div className="space-y-2">
-          <h1 className="font-display text-4xl font-black text-ink">{t('success.title')}</h1>
-          <p className="text-muted text-lg">{t('success.desc', { society: data.societyName })}</p>
+          <h1 className="font-display text-4xl font-black text-ink">{t('success.pending_title')}</h1>
+          <p className="text-muted text-lg">{t('success.pending_desc')}</p>
         </div>
 
-        {/* Shop URL */}
+        {/* Shop URL — for reference */}
         <div className="bg-surface rounded-xl shadow-card p-5 space-y-3 text-left">
-          <p className="text-sm font-semibold text-muted">{t('success.share_prompt')}</p>
+          <p className="text-sm font-semibold text-muted">{t('success.url_preview')}</p>
           <div className="flex items-center gap-2 bg-bg border border-border rounded-xl px-4 py-3">
             <span className="flex-1 font-mono text-sm text-ink break-all">{data.shopUrl}</span>
           </div>

@@ -18,11 +18,11 @@ const STATUS_MAP = {
   cancelled:        { label: 'Cancelled',  variant: 'red' },
   feedback_pending: { label: 'Pending Feedback', variant: 'amber' },
   feedback_done:    { label: 'Reviewed',   variant: 'green' },
-  active:           { label: 'Open',       variant: 'green' },
-  paused:           { label: 'Paused',     variant: 'amber' },
-  inactive:         { label: 'Inactive',   variant: 'muted' },
-  paid:             { label: 'Paid',       variant: 'green' },
-  pending:          { label: 'Unpaid',     variant: 'amber' }
+  active:           { label: 'Open',            variant: 'green' },
+  paused:           { label: 'Paused',          variant: 'amber' },
+  inactive:         { label: 'Inactive',        variant: 'muted' },
+  paid:             { label: 'Paid',            variant: 'green' },
+  pending:          { label: 'Pending',         variant: 'amber' }
 }
 
 export default function Badge({ status, label: labelProp, variant: variantProp, className = '' }) {

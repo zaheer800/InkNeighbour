@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Rocket } from 'lucide-react'
 import { toast } from 'sonner'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -16,6 +16,7 @@ export default function Step3Rates() {
   const [step1, setStep1] = useState(null)
   const [step2, setStep2] = useState(null)
   const [form, setForm] = useState({
+    shop_name: '',
     bw_rate: '2',      // display in rupees
     color_rate: '5',
     delivery_fee: '8',
@@ -29,8 +30,10 @@ export default function Step3Rates() {
     const s1 = sessionStorage.getItem('reg_step1')
     const s2 = sessionStorage.getItem('reg_step2')
     if (!s1 || !s2) { navigate('/register'); return }
+    const parsed2 = JSON.parse(s2)
     setStep1(JSON.parse(s1))
-    setStep2(JSON.parse(s2))
+    setStep2(parsed2)
+    setForm(f => ({ ...f, shop_name: `${parsed2.society.name} Print Shop` }))
   }, [navigate])
 
   function set(field, value) {
@@ -53,16 +56,7 @@ export default function Step3Rates() {
 
     setSubmitting(true)
     try {
-      // 1. Create Supabase auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: step1.email,
-        password: step1.password
-      })
-      if (authError) throw authError
-
-      const userId = authData.user.id
-
-      // 2. Upsert society
+      // 1. Upsert society first (anon-friendly — no auth required)
       let societyId
       if (step2.isNew) {
         const slug = makeShopSlug(step2.society.name, step2.postalCode)
@@ -76,17 +70,49 @@ export default function Step3Rates() {
           })
           .select()
           .single()
-        if (socErr) throw socErr
-        societyId = soc.id
+
+        if (socErr) {
+          // Duplicate slug means the society was already created (e.g. a previous
+          // failed registration attempt). Fetch the existing row instead.
+          if (socErr.code === '23505') {
+            const { data: existing, error: fetchErr } = await supabase
+              .from('societies')
+              .select('id')
+              .eq('slug', slug)
+              .single()
+            if (fetchErr) throw fetchErr
+            societyId = existing.id
+          } else {
+            throw socErr
+          }
+        } else {
+          societyId = soc.id
+        }
       } else {
         societyId = step2.society.id
       }
 
-      // 3. Create owner record
-      const shopSlug = makeShopSlug(
-        step2.isNew ? step2.society.name : step2.society.name,
-        step2.postalCode
-      )
+      // 2. Create Supabase auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: step1.email,
+        password: step1.password
+      })
+      if (authError) throw authError
+
+      // If email confirmation is enabled the session will be null — the owner
+      // row cannot be created until the user confirms and logs in.
+      if (!authData.session) {
+        throw new Error(
+          'A confirmation email has been sent to ' + step1.email + '. ' +
+          'Please confirm your email, then log in to complete setup. ' +
+          'If you want instant registration, disable email confirmation in Supabase Auth settings.'
+        )
+      }
+
+      const userId = authData.user.id
+
+      // 3. Create owner record (requires authenticated session)
+      const shopSlug = makeShopSlug(step2.society.name, step2.postalCode)
 
       const { data: owner, error: ownerErr } = await supabase
         .from('owners')
@@ -96,8 +122,8 @@ export default function Step3Rates() {
           phone: step1.phone,
           flat_number: step1.flat_number,
           society_id: societyId,
-          shop_name: `${step2.isNew ? step2.society.name : step2.society.name} Print Shop`,
-          status: 'active',
+          shop_name: form.shop_name.trim() || `${step2.society.name} Print Shop`,
+          status: 'pending',
           bw_rate: Math.round(parseFloat(form.bw_rate) * 100),
           color_rate: Math.round(parseFloat(form.color_rate) * 100),
           delivery_fee: Math.round(parseFloat(form.delivery_fee || '0') * 100),
@@ -113,7 +139,7 @@ export default function Step3Rates() {
       // 4. Store success data and navigate
       sessionStorage.setItem('reg_success', JSON.stringify({
         shopUrl: `${import.meta.env.VITE_APP_URL}/${shopSlug}`,
-        societyName: step2.isNew ? step2.society.name : step2.society.name,
+        societyName: step2.society.name,
         ownerName: step1.name
       }))
       sessionStorage.removeItem('reg_step1')
@@ -128,7 +154,7 @@ export default function Step3Rates() {
 
   if (!step1 || !step2) return null
 
-  const societyName = step2.isNew ? step2.society.name : step2.society.name
+  const societyName = step2.society.name
   const previewSlug = makeShopSlug(societyName, step2.postalCode)
   const appUrl = import.meta.env.VITE_APP_URL || 'https://inkneighbour.zakapedia.in'
 
@@ -151,6 +177,19 @@ export default function Step3Rates() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-8 space-y-5">
+        {/* Shop name */}
+        <div className="bg-surface rounded-xl shadow-card p-6 space-y-5">
+          <h2 className="font-bold text-lg text-ink">Shop details</h2>
+          <Input
+            label="Shop name"
+            value={form.shop_name}
+            onChange={e => set('shop_name', e.target.value)}
+            placeholder="e.g. Sunshine Apartments Print Shop"
+            hint="This is what customers will see when they visit your shop"
+            required
+          />
+        </div>
+
         {/* Rates */}
         <div className="bg-surface rounded-xl shadow-card p-6 space-y-5">
           <h2 className="font-bold text-lg text-ink">Print rates</h2>
@@ -213,6 +252,7 @@ export default function Step3Rates() {
         </div>
 
         <Button onClick={handleLaunch} loading={submitting} className="w-full" size="lg">
+          <Rocket size={18} />
           {submitting ? t('register.launching') : t('register.launch_cta')}
         </Button>
       </div>
