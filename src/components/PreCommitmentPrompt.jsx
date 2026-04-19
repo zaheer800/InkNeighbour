@@ -45,7 +45,7 @@ export default function PreCommitmentPrompt({ open, onConfirm, onCancel, loading
         <div className="flex gap-3 pt-1">
           <Button
             variant="ghost"
-            size="md"
+            size="sm"
             className="flex-1"
             onClick={onCancel}
             disabled={loading}
@@ -54,7 +54,7 @@ export default function PreCommitmentPrompt({ open, onConfirm, onCancel, loading
           </Button>
           <Button
             variant="primary"
-            size="md"
+            size="sm"
             className="flex-1"
             onClick={onConfirm}
             loading={loading}

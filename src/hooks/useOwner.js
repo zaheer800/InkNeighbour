@@ -25,8 +25,10 @@ export function useOwner() {
 
     if (error) {
       // PGRST116 = no row found — user exists in auth but has no owner record yet
-      // (e.g. registration failed mid-way). Treat as null owner, not a hard error.
+      // (e.g. registration failed mid-way due to email confirmation being enabled).
+      // Treat as null owner, not a hard error — UI handles this case explicitly.
       if (error.code !== 'PGRST116') setError(error)
+      // owner stays null — dashboard will show "setup incomplete" banner
     } else {
       setOwner(data)
     }
@@ -36,6 +38,13 @@ export function useOwner() {
   useEffect(() => {
     fetchOwner()
   }, [fetchOwner])
+
+  // Poll every 30 s while pending so the dashboard auto-updates after admin approves
+  useEffect(() => {
+    if (owner?.status !== 'pending') return
+    const id = setInterval(fetchOwner, 30000)
+    return () => clearInterval(id)
+  }, [owner?.status, fetchOwner])
 
   const updateOwner = useCallback(async (updates) => {
     if (!owner) return { error: new Error('No owner record') }

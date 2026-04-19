@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Printer, Star } from 'lucide-react'
+import { ArrowLeft, Printer, Star, ArrowRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/countries'
 import Badge from '../components/ui/Badge'
 import { StarDisplay } from '../components/StarRating'
 import Button from '../components/ui/Button'
+import Footer from '../components/Footer'
+import AppNav from '../components/AppNav'
 
 export default function Find() {
   const { t } = useTranslation()
@@ -40,13 +42,10 @@ export default function Find() {
   }
 
   return (
-    <div className="min-h-screen bg-bg">
-      {/* Header */}
+    <div className="min-h-screen bg-bg flex flex-col">
+      <AppNav back="/" />
       <div className="page-hero px-4 py-10 text-white relative">
         <div className="relative z-10 max-w-2xl mx-auto">
-          <Link to="/" className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm mb-4 transition-colors">
-            <ArrowLeft size={16} /> Back
-          </Link>
           <h1 className="font-display text-3xl font-bold">
             {t('find.title', { pincode })}
           </h1>
@@ -75,7 +74,7 @@ export default function Find() {
             const fmt = v => formatCurrency(v, countryCode)
 
             return (
-              <div key={shop.id} className="bg-surface rounded-xl shadow-card p-5 space-y-4">
+              <div key={shop.id} className="bg-surface rounded-xl shadow-card p-5 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h2 className="font-bold text-xl text-ink">{shop.shop_name || society.name + ' Print Shop'}</h2>
@@ -85,7 +84,6 @@ export default function Find() {
                   <Badge status={shop.status} />
                 </div>
 
-                {/* Rates */}
                 <div className="flex flex-wrap gap-2 text-sm">
                   <span className="bg-bg px-3 py-1 rounded-pill font-medium text-ink">
                     {t('find.bw_rate', { rate: fmt(shop.bw_rate) })}
@@ -100,13 +98,15 @@ export default function Find() {
                   </span>
                 </div>
 
-                {rating && (
-                  <StarDisplay rating={parseFloat(rating.avg)} count={rating.count} />
-                )}
+                {rating && <StarDisplay rating={parseFloat(rating.avg)} count={rating.count} />}
 
-                <Link to={`/${society.slug}`}>
+                <Link
+                  to={`/${society.slug}`}
+                  className="block pt-2"
+                  onClick={() => sessionStorage.setItem('find_back', `/find?pincode=${pincode}`)}
+                >
                   <Button className="w-full">
-                    {t('find.order_cta')}
+                    Print here
                   </Button>
                 </Link>
               </div>
@@ -114,6 +114,7 @@ export default function Find() {
           })
         )}
       </div>
+      <Footer />
     </div>
   )
 }

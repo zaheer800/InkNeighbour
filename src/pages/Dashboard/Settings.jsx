@@ -1,22 +1,26 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BarChart2, MessageSquare, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../hooks/useAuth'
 import { useOwner } from '../../hooks/useOwner'
+import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
+import AppNav from '../../components/AppNav'
+import DashboardNav from '../../components/DashboardNav'
 
 export default function DashboardSettings() {
   const { t } = useTranslation()
   const { signOut } = useAuth()
-  const { owner, updateOwner } = useOwner()
+  const { owner, loading: ownerLoading, updateOwner } = useOwner()
   const navigate = useNavigate()
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
   const [showDeactivate, setShowDeactivate] = useState(false)
+  const [pwForm, setPwForm] = useState({ newPw: '', confirm: '' })
+  const [savingPw, setSavingPw] = useState(false)
 
   useEffect(() => {
     if (!owner) return
@@ -54,6 +58,16 @@ export default function DashboardSettings() {
     else toast.success(t('settings.saved'))
   }
 
+  async function handleChangePassword() {
+    if (pwForm.newPw.length < 6) { toast.error('Password must be at least 6 characters'); return }
+    if (pwForm.newPw !== pwForm.confirm) { toast.error('Passwords do not match'); return }
+    setSavingPw(true)
+    const { error } = await supabase.auth.updateUser({ password: pwForm.newPw })
+    setSavingPw(false)
+    if (error) toast.error(error.message || 'Could not update password')
+    else { toast.success('Password updated'); setPwForm({ newPw: '', confirm: '' }) }
+  }
+
   async function handleDeactivate() {
     await updateOwner({ status: 'inactive' })
     setShowDeactivate(false)
@@ -67,23 +81,34 @@ export default function DashboardSettings() {
     navigate('/')
   }
 
-  if (!form) return (
-    <div className="min-h-screen bg-bg flex items-center justify-center">
-      <p className="text-muted">{t('common.loading')}</p>
-    </div>
-  )
+  // Show loading while owner is fetching OR while form hasn't been populated yet.
+  // Only show the error state once loading is definitively done and no owner was found.
+  if (ownerLoading || !form) {
+    if (!ownerLoading && !owner) return (
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <p className="text-muted">No shop found. Please contact support.</p>
+      </div>
+    )
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <p className="text-muted">{t('common.loading')}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-bg pb-24">
-      <div className="page-hero px-4 py-10 text-white relative">
-        <div className="relative z-10 max-w-2xl mx-auto flex items-center justify-between">
-          <h1 className="font-display text-3xl font-bold">{t('settings.title')}</h1>
-          <button
-            onClick={handleSignOut}
-            className="text-white/60 hover:text-white text-sm font-medium transition-colors min-h-[44px] px-2"
-          >
-            Sign out
-          </button>
+      <AppNav right={
+        <button
+          onClick={handleSignOut}
+          className="text-white/60 hover:text-white text-sm font-medium transition-colors min-h-[44px] px-2"
+        >
+          Sign out
+        </button>
+      } />
+      <div className="border-b border-border bg-surface px-4 py-4">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="font-display text-xl font-bold text-ink">{t('settings.title')}</h1>
         </div>
       </div>
 
@@ -150,9 +175,33 @@ export default function DashboardSettings() {
           <Input label={t('settings.phone_label')} type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} />
         </section>
 
-        <Button onClick={handleSave} loading={saving} className="w-full" size="lg">
-          {t('settings.save')}
+        <Button onClick={handleSave} loading={saving} className="w-full" size="md">
+          {t('common.save')}
         </Button>
+
+        {/* Security — change password */}
+        <section className="bg-surface rounded-xl shadow-card p-5 space-y-4">
+          <h2 className="font-bold text-lg text-ink">Security</h2>
+          <Input
+            label="New password"
+            type="password"
+            value={pwForm.newPw}
+            onChange={e => setPwForm(f => ({ ...f, newPw: e.target.value }))}
+            placeholder="At least 6 characters"
+            autoComplete="new-password"
+          />
+          <Input
+            label="Confirm new password"
+            type="password"
+            value={pwForm.confirm}
+            onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+            placeholder="Repeat new password"
+            autoComplete="new-password"
+          />
+          <Button onClick={handleChangePassword} loading={savingPw} variant="secondary" size="sm">
+            Update password
+          </Button>
+        </section>
 
         {/* Danger zone */}
         <section className="bg-red/5 border border-red/20 rounded-xl p-5 space-y-3">
@@ -181,27 +230,7 @@ export default function DashboardSettings() {
         </div>
       </Modal>
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex z-30">
-        {[
-          { to: '/dashboard', label: 'Jobs', emoji: '📋' },
-          { to: '/dashboard/earnings', label: 'Earnings', icon: BarChart2 },
-          { to: '/dashboard/feedback', label: 'Feedback', icon: MessageSquare },
-          { to: '/dashboard/settings', label: 'Settings', active: true, icon: Settings }
-        ].map(item => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className={[
-              'flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs font-semibold transition-colors min-h-[56px]',
-              item.active ? 'text-violet' : 'text-muted hover:text-ink'
-            ].join(' ')}
-          >
-            {item.icon ? <item.icon size={20} /> : <span className="text-base">{item.emoji}</span>}
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      <DashboardNav />
     </div>
   )
 }

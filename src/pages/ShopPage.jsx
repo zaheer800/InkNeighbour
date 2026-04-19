@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, Printer, Zap, Clock, Users } from 'lucide-react'
+import { Printer, Zap, Clock, Users, Smartphone, Banknote, Copy as CopyIcon, Layers, Search } from 'lucide-react'
+import AppNav from '../components/AppNav'
+import Footer from '../components/Footer'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, getCountry } from '../lib/countries'
@@ -33,52 +35,65 @@ export default function ShopPage() {
   const [form, setForm] = useState({
     customer_name: '', customer_flat: '', customer_phone: '',
     file: null, pageCount: null, fileName: '',
-    print_type: 'bw', paper_size: 'A4', copies: 1,
-    payment_method: ''
+    print_type: 'bw', paper_size: 'A4', copies: 1, sides: 'single',
+    notes: '', payment_method: ''
   })
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
-    supabase
-      .from('societies')
-      .select(`id, slug, name, owners!inner(id, name, shop_name, status, bw_rate, color_rate, delivery_fee, upi_id, accept_cash, country_code, phone, max_active_jobs, feedback(star_rating))`)
-      .eq('slug', slug)
-      .single()
-      .then(async ({ data, error }) => {
-        if (error || !data) { setLoading(false); return }
-        setShop(data)
+    async function load() {
+      try {
+        const { data, error } = await supabase
+          .from('societies')
+          .select(`id, slug, name, postal_code, owners!inner(id, name, shop_name, status, bw_rate, color_rate, delivery_fee, upi_id, accept_cash, country_code, phone, max_active_jobs)`)
+          .eq('slug', slug)
+          .maybeSingle()
 
-        const owner = data.owners[0]
+        console.log('[ShopPage] slug:', slug, 'data:', data, 'error:', error)
+        if (error || !data) return
+
+        // Supabase returns owners as a single object (not array) when society_id is UNIQUE
+        const normalizedData = {
+          ...data,
+          owners: data.owners
+            ? Array.isArray(data.owners) ? data.owners : [data.owners]
+            : []
+        }
+        if (!normalizedData.owners.length) return
+
+        setShop(normalizedData)
+        const owner = normalizedData.owners[0]
+
         if (owner?.id) {
           const { data: rel } = await supabase
             .from('owner_reliability')
             .select('reliability_score, active_jobs_count, max_active_jobs, avg_response_minutes')
             .eq('owner_id', owner.id)
-            .single()
+            .maybeSingle()
           setReliability(rel || null)
         }
 
-        // Set default payment method
         const methods = getPaymentMethods(owner.country_code, owner)
         if (methods.length > 0) setForm(f => ({ ...f, payment_method: methods[0].id }))
+      } catch {
+        // leave shop null → "not found" message shown below
+      } finally {
         setLoading(false)
-      })
+      }
+    }
+    load()
   }, [slug])
 
   if (loading) return <div className="flex items-center justify-center min-h-screen"><p className="text-muted">{t('common.loading')}</p></div>
   if (!shop || !shop.owners?.length) return <div className="flex items-center justify-center min-h-screen"><p className="text-muted">{t('errors.shop_not_found')}</p></div>
+
 
   const owner = shop.owners[0]
   const countryCode = owner.country_code || 'IN'
   const country = getCountry(countryCode)
   const fmt = v => formatCurrency(v, countryCode)
 
-  const rating = (() => {
-    const fb = owner.feedback
-    if (!fb?.length || fb.length < 3) return null
-    const avg = fb.reduce((s, f) => s + f.star_rating, 0) / fb.length
-    return { avg: avg.toFixed(1), count: fb.length }
-  })()
+  const rating = null // ratings shown once owner_stats view has public GRANT
 
   const paymentMethods = getPaymentMethods(countryCode, owner)
   const ratePerPage = getRatePerPage(form.print_type, owner)
@@ -119,6 +134,7 @@ export default function ShopPage() {
       const e = {}
       if (!form.customer_name.trim()) e.customer_name = t('register.validation_required')
       if (!form.customer_flat.trim()) e.customer_flat = t('register.validation_required')
+      if (!form.customer_phone.trim()) e.customer_phone = t('register.validation_required')
       return e
     }
     if (step === 1) {
@@ -153,13 +169,14 @@ export default function ShopPage() {
       const jobNumber = `INK-${String((count || 0) + 1).padStart(4, '0')}`
 
       // 3. Insert job — society_id comes from the shop (society) row
+      const deliveryPin = String(Math.floor(1000 + Math.random() * 9000))
       const { data: job, error: jobErr } = await supabase
         .from('jobs')
         .insert({
           id: jobId,
           job_number: jobNumber,
           owner_id: owner.id,
-          society_id: shop.id,   // fixed: use the resolved society ID
+          society_id: shop.id,
           customer_name: form.customer_name,
           customer_flat: form.customer_flat,
           customer_phone: form.customer_phone || null,
@@ -169,15 +186,28 @@ export default function ShopPage() {
           print_type: form.print_type,
           paper_size: form.paper_size,
           copies: form.copies,
+          sides: form.sides,
+          notes: form.notes.trim() || null,
           total_amount: breakdown.total,
           payment_method: form.payment_method,
           payment_status: 'pending',
-          status: 'submitted'
+          status: 'submitted',
+          delivery_pin: deliveryPin
         })
         .select()
         .single()
 
       if (jobErr) throw jobErr
+
+      // Persist so customer can find tracking link after closing the browser
+      localStorage.setItem('last_order', JSON.stringify({
+        slug,
+        jobId: job.id,
+        jobNumber: job.job_number,
+        shopName: owner.shop_name || shop.name,
+        createdAt: new Date().toISOString()
+      }))
+
       navigate(`/${slug}/confirm/${job.id}`)
     } catch (err) {
       toast.error(err.message || t('errors.network'))
@@ -223,16 +253,19 @@ export default function ShopPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-screen bg-bg flex flex-col">
+      {/* Navbar */}
+      <AppNav back={sessionStorage.getItem('find_back') || undefined} />
+
       {/* Shop header */}
-      <div className="page-hero px-4 py-10 text-white relative">
-        <div className="relative z-10 max-w-lg mx-auto space-y-2">
-          <h1 className="font-display text-3xl font-bold">{owner.shop_name || shop.name + ' Print Shop'}</h1>
-          <p className="text-white/70">{t('shop.managed_by', { name: owner.name.split(' ')[0] })}</p>
-          <div className="flex flex-wrap gap-2 text-sm mt-2">
-            <span className="bg-white/10 px-3 py-1 rounded-pill">B&W {fmt(owner.bw_rate)}/page</span>
-            <span className="bg-white/10 px-3 py-1 rounded-pill">Colour {fmt(owner.color_rate)}/page</span>
-            <span className="bg-white/10 px-3 py-1 rounded-pill">
+      <div style={{ backgroundColor: '#1A1A2E' }} className="px-4 py-5 text-white">
+        <div className="max-w-lg mx-auto space-y-2">
+          <h1 className="font-display text-xl font-bold leading-tight">{owner.shop_name || shop.name + ' Print Shop'}</h1>
+          <p className="text-white/60 text-sm">{t('shop.managed_by', { name: owner.name.split(' ')[0] })}</p>
+          <div className="flex flex-wrap gap-1.5 text-xs">
+            <span className="bg-white/15 border border-white/20 px-2.5 py-1 rounded-full font-medium">B&W {fmt(owner.bw_rate)}/pg</span>
+            <span className="bg-white/15 border border-white/20 px-2.5 py-1 rounded-full font-medium">Colour {fmt(owner.color_rate)}/pg</span>
+            <span className="bg-white/15 border border-white/20 px-2.5 py-1 rounded-full font-medium">
               {owner.delivery_fee > 0 ? `Delivery ${fmt(owner.delivery_fee)}` : 'Free delivery'}
             </span>
           </div>
@@ -241,7 +274,7 @@ export default function ShopPage() {
           {/* Transparency signal */}
           {signal && (
             <div className={[
-              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mt-1',
+              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold',
               signal.type === 'fast'   ? 'bg-green/20 text-green-100'  :
               signal.type === 'slow'   ? 'bg-amber/20 text-amber-100'  :
               'bg-white/10 text-white/80'
@@ -254,8 +287,19 @@ export default function ShopPage() {
             </div>
           )}
 
+          {/* Find another printer */}
+          {shop.postal_code && (
+            <Link
+              to={`/find?pincode=${shop.postal_code}`}
+              className="inline-flex items-center gap-1.5 text-white/50 hover:text-white/80 text-xs transition-colors"
+            >
+              <Search size={12} />
+              Find another printer in {shop.postal_code}
+            </Link>
+          )}
+
           {/* Progress bar */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 pt-1">
             {STEPS.map((_, i) => (
               <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? 'bg-orange' : 'bg-white/20'}`} />
             ))}
@@ -264,14 +308,14 @@ export default function ShopPage() {
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 py-8 space-y-5">
-        <div className="bg-surface rounded-xl shadow-card p-6 space-y-5">
+      <div className="max-w-lg mx-auto w-full px-4 pt-5 pb-24 space-y-4">
+        <div className="bg-surface rounded-xl shadow-card p-4 space-y-4">
           {/* Step 1: Customer details */}
           {step === 0 && (
             <>
               <Input label={t('shop.name_label')} value={form.customer_name} onChange={e => setField('customer_name', e.target.value)} error={errors.customer_name} placeholder="Your full name" required autoFocus />
               <Input label={`${country.flat_label} number`} value={form.customer_flat} onChange={e => setField('customer_flat', e.target.value)} error={errors.customer_flat} placeholder="e.g. B-302" required />
-              <Input label={`${t('shop.phone_label')}`} type="tel" value={form.customer_phone} onChange={e => setField('customer_phone', e.target.value)} placeholder="Optional — for delivery updates" />
+              <Input label={`${t('shop.phone_label')}`} type="tel" value={form.customer_phone} onChange={e => setField('customer_phone', e.target.value)} error={errors.customer_phone} placeholder="For WhatsApp delivery updates" required />
             </>
           )}
 
@@ -286,35 +330,64 @@ export default function ShopPage() {
                   setField('fileName', file?.name || '')
                 }}
               />
+              <p className="text-xs text-muted text-center leading-relaxed">
+                Your document is deleted from our servers as soon as the job is marked delivered or cancelled. We do not retain any files.
+              </p>
             </>
           )}
 
           {/* Step 3: Print options */}
           {step === 2 && (
             <>
+              {/* Print type */}
               <div>
                 <p className="text-base font-semibold text-ink mb-2">Print type</p>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { id: 'bw', label: '⬛ Black & White', rate: owner.bw_rate },
-                    { id: 'color', label: '🌈 Colour', rate: owner.color_rate }
+                    { id: 'bw', label: 'Black & White', rate: owner.bw_rate },
+                    { id: 'color', label: 'Colour', rate: owner.color_rate }
                   ].map(opt => (
                     <button
                       key={opt.id}
                       onClick={() => setField('print_type', opt.id)}
                       className={[
-                        'flex flex-col items-center gap-1 p-4 rounded-xl border-2 transition-colors min-h-[80px]',
+                        'flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-colors min-h-[80px]',
                         form.print_type === opt.id ? 'border-violet bg-violet/5' : 'border-border bg-bg hover:border-violet/40'
                       ].join(' ')}
                     >
-                      <span className="text-2xl">{opt.id === 'bw' ? '⬛' : '🌈'}</span>
-                      <span className="font-semibold text-ink text-sm">{opt.id === 'bw' ? 'Black & White' : 'Colour'}</span>
+                      <Printer size={22} className={form.print_type === opt.id ? 'text-violet' : 'text-muted'} />
+                      <span className="font-semibold text-ink text-sm">{opt.label}</span>
                       <span className="text-muted text-xs">{fmt(opt.rate)}/page</span>
                     </button>
                   ))}
                 </div>
               </div>
 
+              {/* Sides */}
+              <div>
+                <p className="text-base font-semibold text-ink mb-2">Sides</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: 'single', label: 'Single sided', sub: 'One side per page' },
+                    { id: 'double', label: 'Double sided', sub: 'Front & back' }
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setField('sides', opt.id)}
+                      className={[
+                        'flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-colors min-h-[80px]',
+                        form.sides === opt.id ? 'border-violet bg-violet/5' : 'border-border bg-bg hover:border-violet/40'
+                      ].join(' ')}
+                    >
+                      <Layers size={22} className={form.sides === opt.id ? 'text-violet' : 'text-muted'} />
+                      <span className="font-semibold text-ink text-sm">{opt.label}</span>
+                      <span className="text-muted text-xs">{opt.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Paper size */}
               <div>
                 <p className="text-base font-semibold text-ink mb-2">Paper size</p>
                 <div className="flex gap-2 flex-wrap">
@@ -333,19 +406,38 @@ export default function ShopPage() {
                 </div>
               </div>
 
+              {/* Copies */}
               <div>
                 <p className="text-base font-semibold text-ink mb-2">Copies</p>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-center gap-6 py-2">
                   <button
                     onClick={() => setField('copies', Math.max(1, form.copies - 1))}
-                    className="w-12 h-12 rounded-xl border-2 border-border bg-bg text-ink text-2xl font-bold flex items-center justify-center hover:border-violet/40"
+                    className="w-11 h-11 rounded-xl border-2 border-border bg-bg text-ink text-2xl font-bold flex items-center justify-center hover:border-violet/40"
                   >−</button>
-                  <span className="text-2xl font-bold text-ink w-8 text-center">{form.copies}</span>
+                  <span className="text-3xl font-bold text-ink w-10 text-center">{form.copies}</span>
                   <button
                     onClick={() => setField('copies', Math.min(20, form.copies + 1))}
-                    className="w-12 h-12 rounded-xl border-2 border-border bg-bg text-ink text-2xl font-bold flex items-center justify-center hover:border-violet/40"
+                    className="w-11 h-11 rounded-xl border-2 border-border bg-bg text-ink text-2xl font-bold flex items-center justify-center hover:border-violet/40"
                   >+</button>
                 </div>
+              </div>
+
+              {/* Printing instructions */}
+              <div>
+                <label className="block text-base font-semibold text-ink mb-2">
+                  Printing instructions <span className="text-sm font-normal text-muted">(optional)</span>
+                </label>
+                <textarea
+                  value={form.notes}
+                  onChange={e => setField('notes', e.target.value)}
+                  placeholder="e.g. Staple pages, print page 2 only, landscape mode…"
+                  maxLength={300}
+                  rows={3}
+                  className="w-full border border-border rounded-xl px-4 py-3 text-base bg-bg text-ink focus:outline-none focus:ring-2 focus:ring-violet/40 resize-none placeholder:text-muted"
+                />
+                {form.notes.length > 0 && (
+                  <p className="text-xs text-muted text-right mt-1">{form.notes.length}/300</p>
+                )}
               </div>
             </>
           )}
@@ -370,11 +462,14 @@ export default function ShopPage() {
                         key={m.id}
                         onClick={() => setField('payment_method', m.id)}
                         className={[
-                          'flex-1 py-3 rounded-xl border-2 font-semibold text-sm transition-colors min-h-[52px]',
+                          'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-semibold text-sm transition-colors min-h-[52px]',
                           form.payment_method === m.id ? 'border-violet bg-violet/5 text-violet' : 'border-border bg-bg text-muted'
                         ].join(' ')}
                       >
-                        {m.id === 'upi' ? '📱 UPI' : '💵 Cash'}
+                        {m.id === 'upi'
+                          ? <><Smartphone size={16} /> UPI</>
+                          : <><Banknote size={16} /> Cash</>
+                        }
                       </button>
                     ))}
                   </div>
@@ -393,24 +488,29 @@ export default function ShopPage() {
           )}
         </div>
 
-        {/* Navigation buttons */}
-        <div className="flex gap-3">
+      </div>
+
+      {/* Sticky nav buttons */}
+      <div className="sticky bottom-0 bg-bg/95 backdrop-blur-sm border-t border-border px-4 py-3 z-10">
+        <div className="max-w-lg mx-auto flex gap-3">
           {step > 0 && (
-            <Button variant="ghost" onClick={() => setStep(s => s - 1)} className="flex-shrink-0">
-              <ArrowLeft size={18} /> Back
+            <Button variant="ghost" size="sm" onClick={() => setStep(s => s - 1)} className="flex-shrink-0">
+              Back
             </Button>
           )}
           {step < STEPS.length - 1 ? (
-            <Button onClick={handleNext} className="flex-1">
-              Next <ArrowRight size={18} />
+            <Button size="sm" onClick={handleNext} className="flex-1">
+              Next
             </Button>
           ) : (
-            <Button onClick={handleSubmit} loading={submitting} className="flex-1" size="lg">
+            <Button size="sm" onClick={handleSubmit} loading={submitting} className="flex-1">
               {submitting ? 'Placing order...' : t('shop.place_order', { amount: fmt(breakdown.total) })}
             </Button>
           )}
         </div>
       </div>
+
+      <Footer />
     </div>
   )
 }

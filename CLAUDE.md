@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # CLAUDE.md — InkNeighbour
 
 AI assistant guide for the InkNeighbour codebase. Read this before making any changes.
@@ -10,7 +14,7 @@ AI assistant guide for the InkNeighbour codebase. Read this before making any ch
 
 - **Live URL:** https://inkneighbour.zakapedia.in
 - **Tagline:** "Print it. Drop it. Done."
-- **Status:** Phase 1 — Build Ready (MVP, no source code committed yet — to be built from PRD.md)
+- **Status:** Phase 1 — MVP in progress (source code committed and actively developed)
 - **Stack:** React 18 + Vite · Supabase · Vercel
 
 ---
@@ -28,100 +32,42 @@ AI assistant guide for the InkNeighbour codebase. Read this before making any ch
 | Icons | lucide-react |
 | Toasts | sonner |
 | PWA | vite-plugin-pwa |
+| Testing | Vitest + Testing Library + jsdom |
 | Hosting | Vercel (auto-deploy from main branch) |
-
----
-
-## Repository Structure
-
-```
-inkneighbour/
-├── public/
-│   ├── favicon.ico
-│   ├── icon-192.png, icon-512.png   # PWA icons
-│   ├── badge-72.png                 # Push notification badge
-│   └── sw.js                        # Service worker (push + offline)
-├── src/
-│   ├── components/
-│   │   ├── ui/                      # Reusable primitives: Button, Input, Badge, Card, Modal
-│   │   ├── JobCard.jsx
-│   │   ├── SocietySearch.jsx
-│   │   ├── UploadZone.jsx
-│   │   ├── PriceBreakdown.jsx
-│   │   ├── StarRating.jsx
-│   │   ├── IOSInstallBanner.jsx
-│   │   └── UPIQRCode.jsx
-│   ├── pages/
-│   │   ├── Landing.jsx
-│   │   ├── Find.jsx                 # Society search results
-│   │   ├── Register/                # 3-step wizard
-│   │   │   ├── Step1Details.jsx
-│   │   │   ├── Step2Society.jsx
-│   │   │   ├── Step3Rates.jsx
-│   │   │   └── Success.jsx
-│   │   ├── Login.jsx
-│   │   ├── Dashboard/               # Owner protected area
-│   │   │   ├── index.jsx            # Jobs tab
-│   │   │   ├── Earnings.jsx
-│   │   │   ├── Feedback.jsx
-│   │   │   └── Settings.jsx
-│   │   ├── ShopPage.jsx             # /:slug — public shop
-│   │   ├── OrderConfirm.jsx         # /:slug/confirm/:jobId
-│   │   ├── FeedbackForm.jsx         # /feedback/:jobId
-│   │   └── Admin.jsx
-│   ├── lib/
-│   │   ├── supabase.js              # Supabase client (shared singleton)
-│   │   ├── countries.js             # Country/currency/provider config
-│   │   ├── pricing.js               # Price calculation utilities
-│   │   ├── slugify.js               # URL slug generation
-│   │   ├── storage.js               # deleteJobFile utility
-│   │   └── fuzzyMatch.js            # Fuse.js wrapper
-│   ├── payments/
-│   │   ├── index.js                 # Payment method router
-│   │   ├── upi.js                   # UPI QR generation (Phase 1)
-│   │   ├── cash.js                  # Cash on delivery (Phase 1)
-│   │   └── stripe.js                # Stubbed — not active (Phase 2)
-│   ├── notifications/
-│   │   ├── index.js                 # Notification method router
-│   │   ├── whatsapp.js              # wa.me links (Phase 1) + WATI (Phase 2)
-│   │   ├── browser.js               # Browser push (VAPID)
-│   │   └── sms.js                   # Twilio — not active (Phase 3)
-│   ├── hooks/
-│   │   ├── useAuth.js
-│   │   ├── useOwner.js
-│   │   └── useJobs.js
-│   ├── locales/
-│   │   ├── en.json
-│   │   └── hi.json                  # Phase 2
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── index.css
-├── supabase/
-│   ├── functions/
-│   │   └── notify/index.ts          # Edge Function: web push + WATI/Twilio
-│   └── migrations/
-│       ├── 001_initial_schema.sql
-│       ├── 002_feedback.sql
-│       └── 003_push_subscriptions.sql
-├── PRD.md                           # Full product requirements — source of truth
-├── CLAUDE.md                        # This file
-├── .env.example
-├── vite.config.js
-├── tailwind.config.js
-└── package.json
-```
 
 ---
 
 ## Development Commands
 
 ```bash
-npm install          # Install dependencies
-npm run dev          # Start dev server (http://localhost:5173)
-npm run build        # Production build
-npm run preview      # Preview production build locally
-npm run lint         # ESLint
+npm install           # Install dependencies
+npm run dev           # Start dev server (http://localhost:5173)
+npm run build         # Production build
+npm run preview       # Preview production build locally
+npm run lint          # ESLint (zero warnings enforced)
+
+# Testing
+npm test              # Run all tests once
+npm run test:watch    # Watch mode
+npm run test:ui       # Vitest browser UI
+npm run test:coverage # Coverage report
 ```
+
+---
+
+## Testing
+
+Tests live in `src/test/` mirroring the `src/` structure. The test runner is **Vitest** with `jsdom`.
+
+**Test setup** (`src/test/setup.js`) globally mocks:
+- `react-i18next` — `t(key)` returns the key itself (with `{{var}}` interpolation)
+- `react-router-dom` — `useNavigate`, `useParams`, `useSearchParams`
+- `../lib/supabase` — full chainable mock (auth, from, storage)
+- `sonner` — toast methods
+- `pdfjs-dist` — returns 3 pages by default
+- `window.matchMedia`, `navigator.clipboard`
+
+Write tests against the mocked Supabase from setup — don't re-mock it per test unless you need different resolved values. Override specific calls with `vi.mocked(...).mockResolvedValueOnce(...)`.
 
 ---
 
@@ -137,7 +83,7 @@ VITE_SUPABASE_ANON_KEY=
 # App config
 VITE_APP_URL=https://inkneighbour.zakapedia.in
 VITE_DEFAULT_COUNTRY=IN
-VITE_ADMIN_EMAIL=zaheer@zakapedia.in
+VITE_ADMIN_EMAIL=info@zakapedia.in
 
 # Push notifications (VAPID)
 VITE_VAPID_PUBLIC_KEY=          # Public key — safe to expose
@@ -153,8 +99,6 @@ VAPID_EMAIL=zaheer@zakapedia.in
 # TWILIO_AUTH_TOKEN=
 # TWILIO_FROM_NUMBER=
 ```
-
-Never commit `.env` or any file containing real credentials. Use `.env.example` as a template.
 
 ---
 
@@ -246,8 +190,11 @@ Bucket: job-files/
 /register/rates             Owner registration step 3 (public)
 /register/success           Shop created confirmation (public)
 /login                      Owner login (public)
+/privacy                    Privacy policy (public)
+/terms                      Terms of service (public)
 /dashboard                  Owner jobs [PROTECTED]
 /dashboard/earnings         Owner earnings [PROTECTED]
+/dashboard/availability     Owner availability schedule [PROTECTED]
 /dashboard/settings         Owner settings [PROTECTED]
 /admin                      Platform admin [PROTECTED — admin email only]
 /:slug                      Public shop page (dynamic)
@@ -419,10 +366,8 @@ Payments are routed through `/src/payments/index.js`. Phase 1 implements UPI and
 ## Git & Deployment
 
 - **Main branch** auto-deploys to Vercel.
-- **Feature branch:** `claude/add-claude-documentation-kGvrs` (current AI working branch).
 - No test suite exists yet in Phase 1. Add tests if asked.
 - Commit messages should be imperative, present tense: `Add owner registration step 2`.
-- Never commit `.env` or secrets.
 
 ---
 

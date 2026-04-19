@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BarChart2, MessageSquare, Settings } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useOwner } from '../../hooks/useOwner'
 import { StarDisplay } from '../../components/StarRating'
 import StarRating from '../../components/StarRating'
+import AppNav from '../../components/AppNav'
+import DashboardNav from '../../components/DashboardNav'
 
 export default function DashboardFeedback() {
   const { t } = useTranslation()
-  const { owner } = useOwner()
+  const { owner, loading: ownerLoading } = useOwner()
   const [feedback, setFeedback] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!owner) return
+    if (ownerLoading) return
+    if (!owner) { setLoading(false); return }
     supabase
       .from('feedback')
       .select('*, jobs(job_number, created_at)')
@@ -24,7 +25,7 @@ export default function DashboardFeedback() {
         setFeedback(data || [])
         setLoading(false)
       })
-  }, [owner])
+  }, [owner, ownerLoading])
 
   const avgRating = feedback.length > 0
     ? (feedback.reduce((s, f) => s + f.star_rating, 0) / feedback.length).toFixed(1)
@@ -40,10 +41,10 @@ export default function DashboardFeedback() {
 
   return (
     <div className="min-h-screen bg-bg pb-24">
-      {/* Header */}
-      <div className="page-hero px-4 py-10 text-white relative">
-        <div className="relative z-10 max-w-2xl mx-auto">
-          <h1 className="font-display text-3xl font-bold">{t('feedback_dashboard.title')}</h1>
+      <AppNav />
+      <div className="border-b border-border bg-surface px-4 py-4">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="font-display text-xl font-bold text-ink">{t('feedback_dashboard.title')}</h1>
         </div>
       </div>
 
@@ -113,27 +114,7 @@ export default function DashboardFeedback() {
         )}
       </div>
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex z-30">
-        {[
-          { to: '/dashboard', label: 'Jobs', emoji: '📋' },
-          { to: '/dashboard/earnings', label: 'Earnings', icon: BarChart2 },
-          { to: '/dashboard/feedback', label: 'Feedback', active: true, icon: MessageSquare },
-          { to: '/dashboard/settings', label: 'Settings', icon: Settings }
-        ].map(item => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className={[
-              'flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs font-semibold transition-colors min-h-[56px]',
-              item.active ? 'text-violet' : 'text-muted hover:text-ink'
-            ].join(' ')}
-          >
-            {item.icon ? <item.icon size={20} /> : <span className="text-base">{item.emoji}</span>}
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      <DashboardNav />
     </div>
   )
 }

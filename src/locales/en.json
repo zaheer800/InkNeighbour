@@ -58,7 +58,6 @@
     "phone_label": "Phone number",
     "email_label": "Email address",
     "password_label": "Password",
-    "flat_label": "Flat number",
     "country_label": "Country",
     "search_societies": "Search for your society",
     "known_societies": "Societies in your pincode",
@@ -194,8 +193,8 @@
     "step4_title": "Price & payment",
     "name_label": "Your name",
     "flat_label": "Your flat number",
-    "phone_label": "Your phone (optional)",
-    "place_order": "Place Order — {{amount}}",
+    "phone_label": "Your phone number",
+    "place_order": "Place Order",
     "placing": "Placing order...",
     "bw_option": "Black & White",
     "color_option": "Colour",
@@ -322,7 +321,7 @@
     "point1": "Respond to every job within 15 minutes.",
     "point2": "Missed jobs hurt your reliability score.",
     "point3": "Three missed jobs in a row may pause your shop.",
-    "confirm": "Yes, go live →"
+    "confirm": "Yes, go live"
   },
   "transparency": {
     "fast": "Usually responds in {{minutes}} min",

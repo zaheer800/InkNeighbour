@@ -5,6 +5,7 @@ import { ThumbsUp, ThumbsDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import StarRating from '../components/StarRating'
 import Button from '../components/ui/Button'
+import AppNav from '../components/AppNav'
 
 const THUMB_BASE = 'flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 font-bold min-h-[80px] transition-colors cursor-pointer'
 
@@ -126,7 +127,7 @@ export default function FeedbackForm() {
 
   return (
     <div className="min-h-screen bg-bg">
-      {/* Header */}
+      <AppNav />
       <div className="page-hero px-4 py-12 text-white text-center relative">
         <div className="relative z-10 max-w-sm mx-auto space-y-2">
           <p className="text-4xl">🖨️</p>

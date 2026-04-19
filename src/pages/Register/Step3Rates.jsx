@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Rocket } from 'lucide-react'
+import { Rocket } from 'lucide-react'
+import AppNav from '../../components/AppNav'
 import { toast } from 'sonner'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -95,51 +96,73 @@ export default function Step3Rates() {
       // 2. Create Supabase auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: step1.email,
-        password: step1.password
+        password: step1.password,
+        options: { emailRedirectTo: `${window.location.origin}/dashboard` }
       })
       if (authError) throw authError
 
-      // If email confirmation is enabled the session will be null — the owner
-      // row cannot be created until the user confirms and logs in.
+      const pendingOwner = {
+        societyId,
+        name: step1.name,
+        phone: step1.phone,
+        country_code: step1.country_code,
+        shop_name: form.shop_name.trim() || `${step2.society.name} Print Shop`,
+        bw_rate:      Math.round(parseFloat(form.bw_rate) * 100),
+        color_rate:   Math.round(parseFloat(form.color_rate) * 100),
+        delivery_fee: Math.round(parseFloat(form.delivery_fee || '0') * 100),
+        upi_id:       form.upi_id.trim() || null,
+        accept_cash:  form.accept_cash,
+      }
+
       if (!authData.session) {
-        throw new Error(
-          'A confirmation email has been sent to ' + step1.email + '. ' +
-          'Please confirm your email, then log in to complete setup. ' +
-          'If you want instant registration, disable email confirmation in Supabase Auth settings.'
-        )
+        // Email confirmation is enabled — owner row will be created after they verify.
+        localStorage.setItem('reg_pending', JSON.stringify(pendingOwner))
+        sessionStorage.setItem('reg_success', JSON.stringify({
+          ownerName: step1.name,
+          pendingEmail: step1.email
+        }))
+        sessionStorage.removeItem('reg_step1')
+        sessionStorage.removeItem('reg_step2')
+        navigate('/register/success')
+        return
       }
 
       const userId = authData.user.id
 
-      // 3. Create owner record (requires authenticated session)
-      const shopSlug = makeShopSlug(step2.society.name, step2.postalCode)
+      // 3. Guard against duplicate shop registrations for the same user
+      const { data: existingOwner } = await supabase
+        .from('owners')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle()
 
+      if (existingOwner) {
+        throw new Error('You already have a shop registered. Please log in to manage it.')
+      }
+
+      // 4. Create owner record (status defaults to 'pending' via DB constraint)
       const { data: owner, error: ownerErr } = await supabase
         .from('owners')
         .insert({
-          user_id: userId,
-          name: step1.name,
-          phone: step1.phone,
-          flat_number: step1.flat_number,
-          society_id: societyId,
-          shop_name: form.shop_name.trim() || `${step2.society.name} Print Shop`,
-          status: 'pending',
-          bw_rate: Math.round(parseFloat(form.bw_rate) * 100),
-          color_rate: Math.round(parseFloat(form.color_rate) * 100),
-          delivery_fee: Math.round(parseFloat(form.delivery_fee || '0') * 100),
-          upi_id: form.upi_id.trim() || null,
-          accept_cash: form.accept_cash,
-          country_code: step1.country_code
+          user_id:      userId,
+          name:         pendingOwner.name,
+          phone:        pendingOwner.phone,
+          society_id:   pendingOwner.societyId,
+          shop_name:    pendingOwner.shop_name,
+          bw_rate:      pendingOwner.bw_rate,
+          color_rate:   pendingOwner.color_rate,
+          delivery_fee: pendingOwner.delivery_fee,
+          upi_id:       pendingOwner.upi_id,
+          accept_cash:  pendingOwner.accept_cash,
+          country_code: pendingOwner.country_code,
         })
         .select()
         .single()
 
       if (ownerErr) throw ownerErr
 
-      // 4. Store success data and navigate
+      // 5. Store success data and navigate
       sessionStorage.setItem('reg_success', JSON.stringify({
-        shopUrl: `${import.meta.env.VITE_APP_URL}/${shopSlug}`,
-        societyName: step2.society.name,
         ownerName: step1.name
       }))
       sessionStorage.removeItem('reg_step1')
@@ -154,17 +177,11 @@ export default function Step3Rates() {
 
   if (!step1 || !step2) return null
 
-  const societyName = step2.society.name
-  const previewSlug = makeShopSlug(societyName, step2.postalCode)
-  const appUrl = import.meta.env.VITE_APP_URL || 'https://inkneighbour.zakapedia.in'
-
   return (
     <div className="min-h-screen bg-bg">
-      <div className="page-hero px-4 py-10 text-white relative">
+      <AppNav back="/register/society" />
+      <div className="page-hero px-4 py-6 text-white relative">
         <div className="relative z-10 max-w-lg mx-auto">
-          <Link to="/register/society" className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm mb-4 transition-colors">
-            <ArrowLeft size={16} /> Back
-          </Link>
           <p className="text-white/60 text-sm font-medium mb-1">{t('common.step_of', { current: 3, total: 3 })}</p>
           <h1 className="font-display text-3xl font-bold">{t('register.step3_title')}</h1>
 
@@ -243,12 +260,6 @@ export default function Step3Rates() {
             />
             <span className="text-base font-medium text-ink">{t('register.accept_cash_label')}</span>
           </label>
-        </div>
-
-        {/* Shop URL preview */}
-        <div className="bg-violet/10 border border-violet/30 rounded-xl p-4">
-          <p className="text-sm font-semibold text-violet mb-1">Your shop URL will be:</p>
-          <p className="font-mono text-sm text-ink break-all">{appUrl}/{previewSlug}</p>
         </div>
 
         <Button onClick={handleLaunch} loading={submitting} className="w-full" size="lg">

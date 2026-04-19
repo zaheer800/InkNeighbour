@@ -73,16 +73,18 @@ export default function UploadZone({ onFileReady }) {
 
   if (file) {
     return (
-      <div className="border-2 border-green/50 bg-green/5 rounded-xl p-5 space-y-2">
+      <div className="border-2 border-green/50 bg-green/5 rounded-xl p-5 space-y-2 overflow-hidden">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="bg-green/15 p-3 rounded-xl">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="bg-green/15 p-3 rounded-xl shrink-0">
               <FileText size={24} className="text-green" />
             </div>
-            <div>
-              <p className="font-semibold text-ink">{file.name}</p>
+            <div className="min-w-0">
+              <p className="font-semibold text-ink truncate">{file.name}</p>
               <p className="text-sm text-muted">
-                {(file.size / 1024).toFixed(0)} KB
+                {file.size >= 1024 * 1024
+                  ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+                  : `${(file.size / 1024).toFixed(0)} KB`}
                 {detecting && <span className="ml-2 text-violet">{t('upload.detecting_pages')}</span>}
                 {!detecting && pageCount !== null && (
                   <span className="ml-2 text-green font-semibold">{t('upload.pages_detected', { count: pageCount })}</span>

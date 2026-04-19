@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import AppNav from '../../components/AppNav'
 import SocietySearch from '../../components/SocietySearch'
 
 export default function Step2Society() {
@@ -38,11 +38,9 @@ export default function Step2Society() {
 
   return (
     <div className="min-h-screen bg-bg">
-      <div className="page-hero px-4 py-10 text-white relative">
+      <AppNav back="/register" />
+      <div className="page-hero px-4 py-6 text-white relative">
         <div className="relative z-10 max-w-lg mx-auto">
-          <Link to="/register" className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm mb-4 transition-colors">
-            <ArrowLeft size={16} /> Back
-          </Link>
           <p className="text-white/60 text-sm font-medium mb-1">{t('common.step_of', { current: 2, total: 3 })}</p>
           <h1 className="font-display text-3xl font-bold">{t('register.step2_title')}</h1>
 

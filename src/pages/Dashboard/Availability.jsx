@@ -1,96 +1,61 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import {
-  BarChart2, MessageSquare, Settings, Clock, Plus, Trash2,
-  ToggleLeft, ToggleRight, AlertTriangle, CheckCircle2, Calendar
-} from 'lucide-react'
+import { Clock, Plus, Trash2, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAvailability } from '../../hooks/useAvailability'
-import { useOwner } from '../../hooks/useOwner'
-import { resolveNextAvailable } from '../../lib/availability'
 import Button from '../../components/ui/Button'
-import PreCommitmentPrompt from '../../components/PreCommitmentPrompt'
+import AppNav from '../../components/AppNav'
+import DashboardNav from '../../components/DashboardNav'
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 
 export default function DashboardAvailability() {
   const { t } = useTranslation()
-  const { owner } = useOwner()
   const {
     schedules,
     loadingSchedules,
-    effectiveState,
-    isAvailable,
-    isSystemOverride,
-    overrideExpiresAt,
-    toggling,
-    toggleManualState,
     addScheduleSlot,
     updateScheduleSlot,
     deleteScheduleSlot
   } = useAvailability()
 
-  const [showCommitPrompt, setShowCommitPrompt] = useState(false)
   const [addingSlot, setAddingSlot] = useState(false)
-  const [newSlot, setNewSlot] = useState({ day_of_week: 1, start_time: '09:00', end_time: '21:00' })
+  const [selectedDays, setSelectedDays] = useState(new Set([1, 2, 3, 4, 5])) // Mon–Fri default
+  const [startTime, setStartTime] = useState('09:00')
+  const [endTime, setEndTime] = useState('21:00')
   const [savingSlot, setSavingSlot] = useState(false)
 
-  const nextAvailable = resolveNextAvailable(owner, schedules)
-
-  // ── Toggle ─────────────────────────────────────────────────
-
-  function handleToggleClick() {
-    if (isSystemOverride) {
-      const time = overrideExpiresAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) ?? ''
-      toast.error(t('availability.override_active', { time }))
-      return
-    }
-    if (owner?.manual_state !== 'ON') {
-      // Going live — show pre-commitment prompt
-      setShowCommitPrompt(true)
-    } else {
-      doToggle()
-    }
-  }
-
-  async function doToggle() {
-    const result = await toggleManualState()
-    if (result?.blocked === 'system_override') {
-      toast.error(t('availability.override_active_short'))
-    } else if (result?.blocked === 'rapid_toggle') {
-      toast.error(t('availability.rapid_toggle', { seconds: result.cooldown }))
-    } else if (result?.error) {
-      toast.error(t('errors.network'))
-    } else {
-      const key = result?.newState === 'ON' ? 'availability.now_live' : 'availability.now_paused'
-      toast.success(t(key))
-    }
-  }
-
-  async function handleCommitConfirm() {
-    setShowCommitPrompt(false)
-    await doToggle()
+  function toggleDay(d) {
+    setSelectedDays(prev => {
+      const next = new Set(prev)
+      if (next.has(d)) next.delete(d)
+      else next.add(d)
+      return next
+    })
   }
 
   // ── Schedule slot ──────────────────────────────────────────
 
   async function handleAddSlot(e) {
     e.preventDefault()
-    if (newSlot.start_time >= newSlot.end_time) {
-      toast.error(t('availability.slot_time_invalid'))
-      return
-    }
+    if (selectedDays.size === 0) { toast.error('Select at least one day.'); return }
+    if (startTime >= endTime) { toast.error(t('availability.slot_time_invalid')); return }
     setSavingSlot(true)
-    const { error } = await addScheduleSlot({ ...newSlot, is_active: true })
+    let anyError = false
+    for (const d of [...selectedDays].sort()) {
+      const { error } = await addScheduleSlot({ day_of_week: d, start_time: startTime, end_time: endTime, is_active: true })
+      if (error) anyError = true
+    }
     setSavingSlot(false)
-    if (error) {
+    if (anyError) {
       toast.error(t('errors.network'))
     } else {
       toast.success(t('availability.slot_added'))
       setAddingSlot(false)
-      setNewSlot({ day_of_week: 1, start_time: '09:00', end_time: '21:00' })
+      setSelectedDays(new Set([1, 2, 3, 4, 5]))
+      setStartTime('09:00')
+      setEndTime('21:00')
     }
   }
 
@@ -109,115 +74,25 @@ export default function DashboardAvailability() {
   const slotsByDay = DAY_NAMES.map((name, dow) => ({
     dow,
     name,
-    short: DAY_SHORT[dow],
     slots: schedules.filter(s => s.day_of_week === dow)
   }))
 
   return (
     <div className="min-h-screen bg-bg pb-24">
-      {/* Pre-commitment prompt */}
-      <PreCommitmentPrompt
-        open={showCommitPrompt}
-        onConfirm={handleCommitConfirm}
-        onCancel={() => setShowCommitPrompt(false)}
-        loading={toggling}
-      />
-
-      {/* Header */}
-      <div className="page-hero px-4 py-10 text-white relative">
-        <div className="relative z-10 max-w-2xl mx-auto">
-          <h1 className="font-display text-3xl font-bold">{t('availability.title')}</h1>
-          <p className="text-white/70 mt-1 text-base">{t('availability.subtitle')}</p>
+      <AppNav />
+      <div className="border-b border-border bg-surface px-4 py-4">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="font-display text-xl font-bold text-ink">{t('availability.title')}</h1>
+          <p className="text-muted text-sm mt-0.5">Set when your shop is open for orders</p>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
 
-        {/* ── System override banner ─────────────────────────── */}
-        {isSystemOverride && (
-          <div className="bg-red/10 border border-red/30 rounded-xl p-4 flex items-start gap-3">
-            <AlertTriangle size={20} className="text-red flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-red">{t('availability.override_title')}</p>
-              <p className="text-sm text-ink mt-1">
-                {t('availability.override_message', {
-                  time: overrideExpiresAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) ?? ''
-                })}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* ── Effective state card ───────────────────────────── */}
-        <div className={[
-          'rounded-xl border p-5 flex items-center justify-between',
-          isAvailable
-            ? 'bg-green/10 border-green/30'
-            : 'bg-amber/10 border-amber/30'
-        ].join(' ')}>
-          <div>
-            <p className="text-sm font-medium text-muted">{t('availability.current_status')}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`w-3 h-3 rounded-full ${isAvailable ? 'bg-green' : 'bg-amber'}`} />
-              <span className={`text-xl font-bold ${isAvailable ? 'text-green' : 'text-ink'}`}>
-                {isAvailable ? t('availability.status_available') : t('availability.status_unavailable')}
-              </span>
-            </div>
-            {!isAvailable && nextAvailable && (
-              <p className="text-sm text-muted mt-1 flex items-center gap-1">
-                <Clock size={13} />
-                {t('availability.next_available', { time: nextAvailable })}
-              </p>
-            )}
-          </div>
-
-          {/* Manual toggle button */}
-          <button
-            onClick={handleToggleClick}
-            disabled={toggling || isSystemOverride}
-            className="p-2 disabled:opacity-40 transition-opacity min-w-[48px] min-h-[48px] flex items-center justify-center"
-            aria-label={t('availability.toggle_aria')}
-          >
-            {owner?.manual_state === 'ON'
-              ? <ToggleRight size={40} className="text-green" />
-              : <ToggleLeft size={40} className="text-muted" />
-            }
-          </button>
-        </div>
-
-        {/* State explanation */}
-        <div className="bg-surface border border-border rounded-xl p-4 space-y-2 text-sm text-muted">
-          {[
-            {
-              active: owner?.system_override === 'FORCED_OFF',
-              icon: AlertTriangle,
-              color: 'text-red',
-              label: t('availability.explain_override')
-            },
-            {
-              active: owner?.manual_state === 'ON',
-              icon: CheckCircle2,
-              color: 'text-green',
-              label: t('availability.explain_manual_on')
-            },
-            {
-              active: owner?.manual_state === 'OFF',
-              icon: ToggleLeft,
-              color: 'text-amber',
-              label: t('availability.explain_manual_off')
-            },
-            {
-              active: owner?.manual_state == null,
-              icon: Calendar,
-              color: 'text-violet',
-              label: t('availability.explain_schedule')
-            }
-          ].map((row, i) => (
-            <div key={i} className={`flex items-start gap-2 ${row.active ? 'opacity-100' : 'opacity-40'}`}>
-              <row.icon size={15} className={`${row.color} flex-shrink-0 mt-0.5`} />
-              <span>{row.label}</span>
-            </div>
-          ))}
+        {/* Info banner */}
+        <div className="bg-violet/10 border border-violet/20 rounded-xl p-4 text-sm text-ink leading-relaxed">
+          When you add opening hours, customers can only place orders during those times.
+          If no hours are set, your shop follows your <strong>Go live / Pause</strong> toggle on the Jobs tab.
         </div>
 
         {/* ── Schedule section ───────────────────────────────── */}
@@ -239,38 +114,47 @@ export default function DashboardAvailability() {
             <form onSubmit={handleAddSlot} className="bg-surface border border-violet/30 rounded-xl p-4 mb-4 space-y-4">
               <p className="font-semibold text-ink">{t('availability.new_slot')}</p>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs text-muted mb-1">{t('availability.day_label')}</label>
-                  <select
-                    value={newSlot.day_of_week}
-                    onChange={e => setNewSlot(s => ({ ...s, day_of_week: Number(e.target.value) }))}
-                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-bg focus:outline-none focus:ring-2 focus:ring-violet/40 min-h-[48px]"
-                  >
-                    {DAY_NAMES.map((name, i) => (
-                      <option key={i} value={i}>{name}</option>
-                    ))}
-                  </select>
+              {/* Day pills — multi-select */}
+              <div>
+                <label className="block text-sm text-muted mb-2">{t('availability.day_label')}</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {DAY_SHORT.map((label, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => toggleDay(i)}
+                      className={[
+                        'w-10 h-10 rounded-xl text-sm font-bold transition-colors',
+                        selectedDays.has(i)
+                          ? 'bg-violet text-white'
+                          : 'bg-bg border border-border text-muted hover:border-violet/40'
+                      ].join(' ')}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
+              </div>
 
+              {/* Time pickers */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted mb-1">{t('availability.from_label')}</label>
+                  <label className="block text-sm text-muted mb-1.5">{t('availability.from_label')}</label>
                   <input
                     type="time"
-                    value={newSlot.start_time}
-                    onChange={e => setNewSlot(s => ({ ...s, start_time: e.target.value }))}
-                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-bg focus:outline-none focus:ring-2 focus:ring-violet/40 min-h-[48px]"
+                    value={startTime}
+                    onChange={e => setStartTime(e.target.value)}
+                    className="w-full border border-border rounded-xl px-3 py-3 text-base bg-bg focus:outline-none focus:ring-2 focus:ring-violet/40 min-h-[52px]"
                     required
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs text-muted mb-1">{t('availability.to_label')}</label>
+                  <label className="block text-sm text-muted mb-1.5">{t('availability.to_label')}</label>
                   <input
                     type="time"
-                    value={newSlot.end_time}
-                    onChange={e => setNewSlot(s => ({ ...s, end_time: e.target.value }))}
-                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-bg focus:outline-none focus:ring-2 focus:ring-violet/40 min-h-[48px]"
+                    value={endTime}
+                    onChange={e => setEndTime(e.target.value)}
+                    className="w-full border border-border rounded-xl px-3 py-3 text-base bg-bg focus:outline-none focus:ring-2 focus:ring-violet/40 min-h-[52px]"
                     required
                   />
                 </div>
@@ -281,7 +165,12 @@ export default function DashboardAvailability() {
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" variant="primary" size="sm" className="flex-1" loading={savingSlot}>
-                  {t('availability.save_slot')}
+                  Save
+                  {selectedDays.size > 1 && (
+                    <span className="ml-1 bg-white/25 text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
+                      {selectedDays.size}
+                    </span>
+                  )}
                 </Button>
               </div>
             </form>
@@ -323,29 +212,7 @@ export default function DashboardAvailability() {
         </div>
       </div>
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex z-30">
-        {[
-          { to: '/dashboard', icon: null, label: 'Jobs' },
-          { to: '/dashboard/earnings', icon: BarChart2, label: 'Earnings' },
-          { to: '/dashboard/feedback', icon: MessageSquare, label: 'Feedback' },
-          { to: '/dashboard/availability', icon: Clock, label: 'Hours', active: true },
-          { to: '/dashboard/settings', icon: Settings, label: 'Settings' }
-        ].map(item => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className={[
-              'flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs font-semibold transition-colors min-h-[56px]',
-              item.active ? 'text-violet' : 'text-muted hover:text-ink'
-            ].join(' ')}
-          >
-            {item.icon && <item.icon size={18} />}
-            {!item.icon && <span className="text-base">📋</span>}
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      <DashboardNav />
     </div>
   )
 }

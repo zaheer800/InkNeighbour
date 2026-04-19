@@ -16,6 +16,9 @@ import ShopPage from './pages/ShopPage'
 import OrderConfirm from './pages/OrderConfirm'
 import FeedbackForm from './pages/FeedbackForm'
 import Admin from './pages/Admin'
+import AdminDirectory from './pages/AdminDirectory'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 import IOSInstallBanner from './components/IOSInstallBanner'
 
 function ProtectedRoute({ children }) {
@@ -55,6 +58,11 @@ export default function App() {
 
         {/* Platform admin — protected + admin email only */}
         <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+        <Route path="/admin/directory" element={<AdminRoute><AdminDirectory /></AdminRoute>} />
+
+        {/* Static pages */}
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
 
         {/* Customer-facing (dynamic) — must come last */}
         <Route path="/feedback/:jobId" element={<FeedbackForm />} />

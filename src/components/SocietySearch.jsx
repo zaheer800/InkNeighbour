@@ -83,7 +83,8 @@ export default function SocietySearch({ postalCode, countryCode = 'IN', onSelect
                 return (
                   <button
                     key={s.id}
-                    onClick={() => handleSelectExisting(s)}
+                    onClick={taken ? undefined : () => handleSelectExisting(s)}
+                    disabled={taken}
                     className={[
                       'w-full text-left p-4 rounded-xl border transition-colors',
                       taken

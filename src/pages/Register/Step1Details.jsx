@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import AppNav from '../../components/AppNav'
 import { countryOptions, DEFAULT_COUNTRY } from '../../lib/countries'
 
 export default function Step1Details() {
@@ -11,7 +11,7 @@ export default function Step1Details() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
     name: '', phone: '', email: '', password: '',
-    flat_number: '', country_code: DEFAULT_COUNTRY
+    country_code: DEFAULT_COUNTRY
   })
   const [errors, setErrors] = useState({})
 
@@ -30,7 +30,6 @@ export default function Step1Details() {
     if (!form.email.trim()) e.email = t('register.validation_required')
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = t('register.validation_email')
     if (!form.password || form.password.length < 6) e.password = 'Password must be at least 6 characters'
-    if (!form.flat_number.trim()) e.flat_number = t('register.validation_required')
     return e
   }
 
@@ -43,12 +42,9 @@ export default function Step1Details() {
 
   return (
     <div className="min-h-screen bg-bg">
-      {/* Header */}
-      <div className="page-hero px-4 py-10 text-white relative">
+      <AppNav back="/" />
+      <div className="page-hero px-4 py-6 text-white relative">
         <div className="relative z-10 max-w-lg mx-auto">
-          <Link to="/" className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm mb-4 transition-colors">
-            <ArrowLeft size={16} /> Back
-          </Link>
           <p className="text-white/60 text-sm font-medium mb-1">{t('common.step_of', { current: 1, total: 3 })}</p>
           <h1 className="font-display text-3xl font-bold">{t('register.step1_title')}</h1>
 
@@ -102,14 +98,6 @@ export default function Step1Details() {
             required
             type="password"
             autoComplete="new-password"
-          />
-          <Input
-            label={t('register.flat_label')}
-            value={form.flat_number}
-            onChange={e => set('flat_number', e.target.value)}
-            error={errors.flat_number}
-            placeholder="e.g. A-204"
-            required
           />
 
           <div className="flex flex-col gap-1.5">

@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BarChart2, MessageSquare, Settings, ExternalLink, Copy } from 'lucide-react'
+import { ExternalLink, Copy } from 'lucide-react'
 import { useOwner } from '../../hooks/useOwner'
 import { useJobs } from '../../hooks/useJobs'
 import { formatCurrency } from '../../lib/countries'
 import { buildShopShareLink } from '../../notifications/whatsapp'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import AppNav from '../../components/AppNav'
+import DashboardNav from '../../components/DashboardNav'
 
 const PERIODS = ['today', 'week', 'month', 'all']
 const PERIOD_LABELS = { today: 'Today', week: 'This week', month: 'This month', all: 'All time' }
@@ -24,7 +25,7 @@ export default function DashboardEarnings() {
   const { t } = useTranslation()
   const { owner } = useOwner()
   const { jobs } = useJobs()
-  const [period, setPeriod] = useState('month')
+  const [period, setPeriod] = useState('today')
   const [cartridgeCost, setCartridgeCost] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -54,11 +55,22 @@ export default function DashboardEarnings() {
   }
 
   const shopSlug = owner?.societies?.slug
-  const appUrl = import.meta.env.VITE_APP_URL || 'https://inkneighbour.zakapedia.in'
+  const appUrl = window.location.origin
   const shopUrl = shopSlug ? `${appUrl}/${shopSlug}` : ''
 
   function copyLink() {
-    navigator.clipboard.writeText(shopUrl).then(() => {
+    const write = navigator.clipboard
+      ? navigator.clipboard.writeText(shopUrl)
+      : Promise.resolve().then(() => {
+          const el = document.createElement('textarea')
+          el.value = shopUrl
+          Object.assign(el.style, { position: 'fixed', opacity: '0' })
+          document.body.appendChild(el)
+          el.select()
+          document.execCommand('copy')
+          document.body.removeChild(el)
+        })
+    write.then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -66,10 +78,10 @@ export default function DashboardEarnings() {
 
   return (
     <div className="min-h-screen bg-bg pb-24">
-      {/* Header */}
-      <div className="page-hero px-4 py-10 text-white relative">
-        <div className="relative z-10 max-w-2xl mx-auto">
-          <h1 className="font-display text-3xl font-bold">{t('earnings.title')}</h1>
+      <AppNav />
+      <div className="border-b border-border bg-surface px-4 py-4">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="font-display text-xl font-bold text-ink">{t('earnings.title')}</h1>
         </div>
       </div>
 
@@ -172,27 +184,7 @@ export default function DashboardEarnings() {
         )}
       </div>
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex z-30">
-        {[
-          { to: '/dashboard', label: 'Jobs', emoji: '📋' },
-          { to: '/dashboard/earnings', label: 'Earnings', active: true, icon: BarChart2 },
-          { to: '/dashboard/feedback', label: 'Feedback', icon: MessageSquare },
-          { to: '/dashboard/settings', label: 'Settings', icon: Settings }
-        ].map(item => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className={[
-              'flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs font-semibold transition-colors min-h-[56px]',
-              item.active ? 'text-violet' : 'text-muted hover:text-ink'
-            ].join(' ')}
-          >
-            {item.icon ? <item.icon size={20} /> : <span className="text-base">{item.emoji}</span>}
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      <DashboardNav />
     </div>
   )
 }
