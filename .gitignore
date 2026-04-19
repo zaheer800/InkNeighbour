@@ -36,3 +36,7 @@ yarn-error.log*
 # Supabase
 supabase/.branches/
 supabase/.temp/
+.claude/settings.local.json
+.gitignore
+.claude/settings.json
+.claude/settings.local.json
