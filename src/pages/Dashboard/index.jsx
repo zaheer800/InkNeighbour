@@ -395,7 +395,7 @@ export default function DashboardJobs() {
 
               <p className="text-xs text-muted text-center">
                 Questions? WhatsApp us at{' '}
-                <a href="https://wa.me/916381601740" target="_blank" rel="noopener noreferrer" className="text-violet font-semibold">
+                <a href="{`https://wa.me/${import.meta.env.VITE_CONTACT_WHATSAPP}`}" target="_blank" rel="noopener noreferrer" className="text-violet font-semibold">
                   +91 63816 01740
                 </a>
               </p>

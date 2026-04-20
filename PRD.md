@@ -1435,7 +1435,7 @@ Route protection:
 
 **Guard against duplicate takeover:** `owners.society_id` has a DB-level UNIQUE constraint. INSERT fails with PostgreSQL error code `23505` → friendly message: "This society already has a registered printer owner."
 
-**Known issue:** During Step 2, RLS on the `owners` table blocks anonymous reads, so all societies appear "Available" regardless of actual taken status. The DB constraint is the real guard. Fix tracked in `docs/todo-supabase-rls-society-availability.md`.
+Society availability is shown correctly via the `get_societies_with_availability` SECURITY DEFINER RPC function (migration 012). Taken societies display as "Taken" with the owner's name during Step 2.
 
 ### 10.2 Customer Order Flow
 
@@ -1876,7 +1876,7 @@ Sitemap auto-generated from active society slugs.
 - [ ] **Availability system — SLA enforcement (15min timer, auto-cancel, reminders)** — not yet
 - [ ] **Availability system — next available time display** — not yet
 - [ ] Admin flagging for low-rated shops — not yet
-- [ ] ⚠️ **RLS fix: society availability display** — all societies show as Available due to anonymous RLS restriction on `owners` table. DB constraint prevents actual takeover. Fix tracked in `docs/todo-supabase-rls-society-availability.md`
+- [x] **RLS fix: society availability display** — fixed via `get_societies_with_availability` SECURITY DEFINER RPC (migration 012)
 
 ### Phase 2 — Growth
 - [ ] WATI WhatsApp automated messages (order confirmation, delivery, feedback request)

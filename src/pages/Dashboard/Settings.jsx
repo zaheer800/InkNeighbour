@@ -203,14 +203,16 @@ export default function DashboardSettings() {
           </Button>
         </section>
 
-        {/* Danger zone */}
-        <section className="bg-red/5 border border-red/20 rounded-xl p-5 space-y-3">
-          <h2 className="font-bold text-lg text-red">{t('settings.danger_zone')}</h2>
-          <p className="text-sm text-muted">Deactivating will make your shop unavailable to customers. You can reactivate later by contacting support.</p>
-          <Button variant="danger" onClick={() => setShowDeactivate(true)} className="w-full">
-            {t('settings.deactivate')}
-          </Button>
-        </section>
+        {/* Danger zone — hidden while awaiting admin approval */}
+        {owner?.status !== 'pending' && (
+          <section className="bg-red/5 border border-red/20 rounded-xl p-5 space-y-3">
+            <h2 className="font-bold text-lg text-red">{t('settings.danger_zone')}</h2>
+            <p className="text-sm text-muted">Deactivating will make your shop unavailable to customers. You can reactivate later by contacting support.</p>
+            <Button variant="danger" onClick={() => setShowDeactivate(true)} className="w-full">
+              {t('settings.deactivate')}
+            </Button>
+          </section>
+        )}
       </div>
 
       {/* Deactivate confirmation modal */}

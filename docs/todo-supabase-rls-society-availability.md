@@ -1,4 +1,5 @@
-# TODO: Fix Society Availability Display via Supabase RLS
+# DONE: Fix Society Availability Display via Supabase RLS
+<!-- Resolved 2026-04-20 via migration 012_society_availability_rpc.sql -->
 
 ## Problem
 
