@@ -91,7 +91,7 @@ export default function Privacy() {
         {/* WhatsApp CTA */}
         <div className="text-center">
           <a
-            href="https://wa.me/916381601740"
+            href={`https://wa.me/${import.meta.env.VITE_CONTACT_WHATSAPP}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-green/10 border border-green/30 text-green hover:bg-green/20 transition-colors font-semibold px-6 py-3 rounded-xl min-h-[52px]"

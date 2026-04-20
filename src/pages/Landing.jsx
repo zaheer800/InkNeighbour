@@ -106,7 +106,7 @@ export default function Landing() {
           </p>
 
           {/* Search card */}
-          <form onSubmit={handleFind} className="max-w-[420px] mx-auto mb-8">
+          <form onSubmit={handleFind} className="max-w-[420px] mx-auto mb-0">
             <div
               className="flex gap-2 p-2 rounded-2xl border border-white/15"
               style={{ background: 'rgba(255,255,255,0.08)' }}
@@ -117,7 +117,7 @@ export default function Landing() {
                   type="text"
                   value={pincode}
                   onChange={e => setPincode(e.target.value)}
-                  placeholder="Enter your pincode"
+                  placeholder="Your pincode"
                   className="flex-1 min-w-0 min-h-[48px] bg-transparent text-white placeholder:text-white/40 text-base font-medium focus:outline-none"
                   inputMode="numeric"
                   pattern="[0-9]*"
@@ -152,12 +152,10 @@ export default function Landing() {
           </div>
         )}
 
-        {/* Bottom fade into bg */}
-        <div className="h-6 bg-gradient-to-b from-transparent to-bg" />
       </section>
 
       {/* ── Trust strip ────────────────────────────────────── */}
-      <section className="px-4 sm:px-6 py-6 bg-bg">
+      <section className="px-4 sm:px-6 pt-5 pb-6 bg-bg">
         <div className="max-w-2xl mx-auto">
           <div className="grid grid-cols-3 gap-3">
             {[
@@ -338,7 +336,7 @@ export default function Landing() {
             {/* Right: earnings visual */}
             <div className="hidden lg:flex items-center justify-center px-8 py-12 relative">
               {/* Mock earnings card */}
-              <div className="w-full max-w-[280px]">
+              <div className="w-full max-w-[280px] relative">
                 {/* Floating card */}
                 <div
                   className="bg-white/[0.06] border border-white/[0.1] rounded-2xl p-6 backdrop-blur-sm"
@@ -395,39 +393,27 @@ export default function Landing() {
 
       {/* ── Footer ─────────────────────────────────────────── */}
       <footer className="bg-ink text-white/40 border-t border-white/[0.06]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-5">
-
-            {/* Brand + tagline */}
-            <div className="text-center sm:text-left space-y-1">
-              <p className="font-display font-black text-xl text-white/90 tracking-tight">
-                Ink<span className="text-orange">Neighbour</span>
-              </p>
-              <p className="text-xs text-white/30 font-medium">Print it. Drop it. Done.</p>
-              <p className="text-xs text-white/20 mt-1">
-                © {new Date().getFullYear()} InkNeighbour. All rights reserved.
-              </p>
-            </div>
-
-            {/* Links */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 text-[14px]">
-              <a
-                href="https://wa.me/916381601740"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 hover:text-white transition-colors group"
-              >
-                <MessageCircle size={14} className="group-hover:text-green transition-colors" />
-                Contact us
-              </a>
-              <Link to="/privacy" className="hover:text-white transition-colors">
-                Privacy Policy
-              </Link>
-              <Link to="/terms" className="hover:text-white transition-colors">
-                Terms of Service
-              </Link>
-            </div>
-          </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-center space-y-3">
+          <p className="font-display font-black text-xl text-white/90 tracking-tight">
+            Ink<span className="text-orange">Neighbour</span>
+          </p>
+          <p className="text-xs text-white/30 font-medium">Print it. Drop it. Done.</p>
+          <p className="text-xs text-white/20">© {new Date().getFullYear()} InkNeighbour. All rights reserved.</p>
+          <p className="text-[13px]">
+            <a
+              href={`https://wa.me/${import.meta.env.VITE_CONTACT_WHATSAPP}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 hover:text-white transition-colors group"
+            >
+              <MessageCircle size={13} className="group-hover:text-green transition-colors" />
+              Contact us
+            </a>
+            <span className="mx-2 opacity-30">·</span>
+            <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <span className="mx-2 opacity-30">·</span>
+            <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+          </p>
         </div>
       </footer>
     </div>

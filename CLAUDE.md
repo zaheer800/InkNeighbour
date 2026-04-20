@@ -84,6 +84,7 @@ VITE_SUPABASE_ANON_KEY=
 VITE_APP_URL=https://inkneighbour.zakapedia.in
 VITE_DEFAULT_COUNTRY=IN
 VITE_ADMIN_EMAIL=info@zakapedia.in
+VITE_CONTACT_WHATSAPP=          # WhatsApp number for "Contact us" links (e.g. 916381601740)
 
 # Push notifications (VAPID)
 VITE_VAPID_PUBLIC_KEY=          # Public key — safe to expose

@@ -19,6 +19,7 @@ import PreCommitmentPrompt from '../../components/PreCommitmentPrompt'
 import { formatCurrency } from '../../lib/countries'
 import { setupOwnerPush } from '../../notifications/index'
 import { buildShopShareLink } from '../../notifications/whatsapp'
+import { makeShopSlug } from '../../lib/slugify'
 
 const TABS = ['submitted', 'accepted', 'printing', 'delivered', 'cancelled']
 const TAB_LABELS = {
@@ -58,11 +59,40 @@ export default function DashboardJobs() {
         const p = JSON.parse(raw)
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { setAutoCompleting(false); return }
+
+        // Resolve societyId — create the society now if it was a new one
+        // (deferred from registration because email confirmation was enabled).
+        let societyId = p.societyId
+        if (p.isNewSociety) {
+          const slug = makeShopSlug(p.societyName, p.societyPostalCode)
+          const { data: soc, error: socErr } = await supabase
+            .from('societies')
+            .insert({
+              name:         p.societyName,
+              slug,
+              postal_code:  p.societyPostalCode,
+              country_code: p.country_code
+            })
+            .select()
+            .single()
+
+          if (socErr?.code === '23505') {
+            // Society was already created (e.g. previous failed attempt).
+            const { data: existing } = await supabase
+              .from('societies').select('id').eq('slug', slug).single()
+            societyId = existing?.id
+          } else if (socErr) {
+            throw socErr
+          } else {
+            societyId = soc.id
+          }
+        }
+
         const { error } = await supabase.from('owners').insert({
           user_id:      user.id,
           name:         p.name,
           phone:        p.phone,
-          society_id:   p.societyId,
+          society_id:   societyId,
           shop_name:    p.shop_name,
           bw_rate:      p.bw_rate,
           color_rate:   p.color_rate,
@@ -365,7 +395,7 @@ export default function DashboardJobs() {
 
               <p className="text-xs text-muted text-center">
                 Questions? WhatsApp us at{' '}
-                <a href="https://wa.me/916381601740" target="_blank" rel="noopener noreferrer" className="text-violet font-semibold">
+                <a href="{`https://wa.me/${import.meta.env.VITE_CONTACT_WHATSAPP}`}" target="_blank" rel="noopener noreferrer" className="text-violet font-semibold">
                   +91 63816 01740
                 </a>
               </p>

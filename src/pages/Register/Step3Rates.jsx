@@ -57,24 +57,63 @@ export default function Step3Rates() {
 
     setSubmitting(true)
     try {
-      // 1. Upsert society first (anon-friendly — no auth required)
+      // 1. Create auth user FIRST — we need to know whether email confirmation
+      //    is required before writing any other DB records.
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: step1.email,
+        password: step1.password,
+        options: { emailRedirectTo: `${window.location.origin}/dashboard` }
+      })
+      if (authError) throw authError
+
+      // Build the data we'll need whether we continue now or after email verification.
+      const ownerPayload = {
+        isNewSociety:       step2.isNew,
+        societyId:          step2.isNew ? null : step2.society.id,
+        societyName:        step2.isNew ? step2.society.name : null,
+        societyPostalCode:  step2.isNew ? step2.postalCode : null,
+        name:         step1.name,
+        phone:        step1.phone,
+        country_code: step1.country_code,
+        shop_name:    form.shop_name.trim() || `${step2.society.name} Print Shop`,
+        bw_rate:      Math.round(parseFloat(form.bw_rate) * 100),
+        color_rate:   Math.round(parseFloat(form.color_rate) * 100),
+        delivery_fee: Math.round(parseFloat(form.delivery_fee || '0') * 100),
+        upi_id:       form.upi_id.trim() || null,
+        accept_cash:  form.accept_cash,
+      }
+
+      if (!authData.session) {
+        // Email confirmation is enabled — defer ALL DB writes (society + owner)
+        // until the owner clicks the verification link and lands on /dashboard.
+        localStorage.setItem('reg_pending', JSON.stringify(ownerPayload))
+        sessionStorage.setItem('reg_success', JSON.stringify({
+          ownerName: step1.name,
+          pendingEmail: step1.email
+        }))
+        sessionStorage.removeItem('reg_step1')
+        sessionStorage.removeItem('reg_step2')
+        navigate('/register/success')
+        return
+      }
+
+      // 2. No email confirmation — create society and owner now.
       let societyId
       if (step2.isNew) {
         const slug = makeShopSlug(step2.society.name, step2.postalCode)
         const { data: soc, error: socErr } = await supabase
           .from('societies')
           .insert({
-            name: step2.society.name,
+            name:         step2.society.name,
             slug,
-            postal_code: step2.postalCode,
+            postal_code:  step2.postalCode,
             country_code: step1.country_code
           })
           .select()
           .single()
 
         if (socErr) {
-          // Duplicate slug means the society was already created (e.g. a previous
-          // failed registration attempt). Fetch the existing row instead.
+          // Duplicate slug: society was already created by a prior attempt.
           if (socErr.code === '23505') {
             const { data: existing, error: fetchErr } = await supabase
               .from('societies')
@@ -93,43 +132,9 @@ export default function Step3Rates() {
         societyId = step2.society.id
       }
 
-      // 2. Create Supabase auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: step1.email,
-        password: step1.password,
-        options: { emailRedirectTo: `${window.location.origin}/dashboard` }
-      })
-      if (authError) throw authError
-
-      const pendingOwner = {
-        societyId,
-        name: step1.name,
-        phone: step1.phone,
-        country_code: step1.country_code,
-        shop_name: form.shop_name.trim() || `${step2.society.name} Print Shop`,
-        bw_rate:      Math.round(parseFloat(form.bw_rate) * 100),
-        color_rate:   Math.round(parseFloat(form.color_rate) * 100),
-        delivery_fee: Math.round(parseFloat(form.delivery_fee || '0') * 100),
-        upi_id:       form.upi_id.trim() || null,
-        accept_cash:  form.accept_cash,
-      }
-
-      if (!authData.session) {
-        // Email confirmation is enabled — owner row will be created after they verify.
-        localStorage.setItem('reg_pending', JSON.stringify(pendingOwner))
-        sessionStorage.setItem('reg_success', JSON.stringify({
-          ownerName: step1.name,
-          pendingEmail: step1.email
-        }))
-        sessionStorage.removeItem('reg_step1')
-        sessionStorage.removeItem('reg_step2')
-        navigate('/register/success')
-        return
-      }
-
       const userId = authData.user.id
 
-      // 3. Guard against duplicate shop registrations for the same user
+      // 3. Guard against duplicate shop for the same user
       const { data: existingOwner } = await supabase
         .from('owners')
         .select('id')
@@ -141,30 +146,30 @@ export default function Step3Rates() {
       }
 
       // 4. Create owner record (status defaults to 'pending' via DB constraint)
-      const { data: owner, error: ownerErr } = await supabase
+      const { error: ownerErr } = await supabase
         .from('owners')
         .insert({
           user_id:      userId,
-          name:         pendingOwner.name,
-          phone:        pendingOwner.phone,
-          society_id:   pendingOwner.societyId,
-          shop_name:    pendingOwner.shop_name,
-          bw_rate:      pendingOwner.bw_rate,
-          color_rate:   pendingOwner.color_rate,
-          delivery_fee: pendingOwner.delivery_fee,
-          upi_id:       pendingOwner.upi_id,
-          accept_cash:  pendingOwner.accept_cash,
-          country_code: pendingOwner.country_code,
+          name:         ownerPayload.name,
+          phone:        ownerPayload.phone,
+          society_id:   societyId,
+          shop_name:    ownerPayload.shop_name,
+          bw_rate:      ownerPayload.bw_rate,
+          color_rate:   ownerPayload.color_rate,
+          delivery_fee: ownerPayload.delivery_fee,
+          upi_id:       ownerPayload.upi_id,
+          accept_cash:  ownerPayload.accept_cash,
+          country_code: ownerPayload.country_code,
         })
-        .select()
-        .single()
 
-      if (ownerErr) throw ownerErr
+      if (ownerErr) {
+        if (ownerErr.code === '23505') {
+          throw new Error('This society already has a registered printer owner. Please select a different society or contact support.')
+        }
+        throw ownerErr
+      }
 
-      // 5. Store success data and navigate
-      sessionStorage.setItem('reg_success', JSON.stringify({
-        ownerName: step1.name
-      }))
+      sessionStorage.setItem('reg_success', JSON.stringify({ ownerName: step1.name }))
       sessionStorage.removeItem('reg_step1')
       sessionStorage.removeItem('reg_step2')
       navigate('/register/success')

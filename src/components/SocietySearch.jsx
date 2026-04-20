@@ -24,10 +24,10 @@ export default function SocietySearch({ postalCode, countryCode = 'IN', onSelect
     if (!postalCode) return
     setLoading(true)
     const { data } = await supabase
-      .from('societies')
-      .select(`id, name, slug, city, state, owners(id, name, status)`)
-      .eq('postal_code', postalCode)
-      .eq('country_code', countryCode)
+      .rpc('get_societies_with_availability', {
+        p_postal_code: postalCode,
+        p_country_code: countryCode
+      })
 
     setSocieties(data || [])
     setSearched(true)
@@ -48,9 +48,8 @@ export default function SocietySearch({ postalCode, countryCode = 'IN', onSelect
   }
 
   function handleSelectExisting(society) {
-    const owner = society.owners?.[0]
-    if (owner && owner.status !== 'inactive') {
-      alert(t('register.society_taken', { name: owner.name }))
+    if (society.is_taken) {
+      alert(t('register.society_taken', { name: society.owner_name }))
       return
     }
     onSelect({ society, isNew: false })
@@ -78,8 +77,7 @@ export default function SocietySearch({ postalCode, countryCode = 'IN', onSelect
                 {t('register.known_societies')}
               </p>
               {societies.map(s => {
-                const owner = s.owners?.[0]
-                const taken = owner && owner.status !== 'inactive'
+                const taken = s.is_taken
                 return (
                   <button
                     key={s.id}
