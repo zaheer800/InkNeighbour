@@ -10,8 +10,8 @@ import Badge from '../components/ui/Badge'
 import AppNav from '../components/AppNav'
 import Footer from '../components/Footer'
 
-const SHOP_FILTERS = ['all', 'active', 'paused', 'inactive']
-const SHOP_FILTER_LABELS = { all: 'All', active: 'Active', paused: 'Paused', inactive: 'Inactive' }
+const SHOP_FILTERS = ['all', 'pending', 'active', 'paused', 'inactive']
+const SHOP_FILTER_LABELS = { all: 'All', pending: 'Pending', active: 'Active', paused: 'Paused', inactive: 'Inactive' }
 const PAGE_SIZE = 20
 
 function buildWhatsAppLink(phone, shopUrl, ownerName, shopName) {
@@ -68,7 +68,6 @@ export default function AdminDirectory() {
   }
 
   const filtered = shops.filter(s =>
-    s.status !== 'pending' &&
     (shopFilter === 'all' || s.status === shopFilter) &&
     (!shopSearch || [s.shop_name, s.name, s.phone, s.societies?.name, s.societies?.city]
       .some(v => v?.toLowerCase().includes(shopSearch.toLowerCase())))
@@ -116,7 +115,7 @@ export default function AdminDirectory() {
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-xl text-ink">All Shops</h2>
             <span className="text-sm text-muted">
-              {shops.filter(s => s.status !== 'pending').length} registered
+              {shops.length} registered
             </span>
           </div>
 
@@ -146,7 +145,7 @@ export default function AdminDirectory() {
                 >
                   {SHOP_FILTER_LABELS[f]}
                   <span className="ml-1.5 opacity-60">
-                    ({shops.filter(s => s.status !== 'pending' && (f === 'all' || s.status === f)).length})
+                    ({shops.filter(s => f === 'all' || s.status === f).length})
                   </span>
                 </button>
               ))}
@@ -157,7 +156,7 @@ export default function AdminDirectory() {
             <p className="text-muted text-center py-8">Loading...</p>
           ) : filtered.length === 0 ? (
             <p className="text-muted text-center py-8">
-              {shopSearch ? 'No shops match your search.' : 'No approved shops yet.'}
+              {shopSearch ? 'No shops match your search.' : 'No shops found.'}
             </p>
           ) : (
             <div className="space-y-3">
