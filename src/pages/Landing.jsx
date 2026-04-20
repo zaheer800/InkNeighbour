@@ -338,7 +338,7 @@ export default function Landing() {
             {/* Right: earnings visual */}
             <div className="hidden lg:flex items-center justify-center px-8 py-12 relative">
               {/* Mock earnings card */}
-              <div className="w-full max-w-[280px]">
+              <div className="w-full max-w-[280px] relative">
                 {/* Floating card */}
                 <div
                   className="bg-white/[0.06] border border-white/[0.1] rounded-2xl p-6 backdrop-blur-sm"
@@ -410,7 +410,7 @@ export default function Landing() {
             </div>
 
             {/* Links */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 text-[14px]">
+            <div className="flex flex-row flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[14px]">
               <a
                 href="https://wa.me/916381601740"
                 target="_blank"

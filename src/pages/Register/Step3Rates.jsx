@@ -159,7 +159,12 @@ export default function Step3Rates() {
         .select()
         .single()
 
-      if (ownerErr) throw ownerErr
+      if (ownerErr) {
+        if (ownerErr.code === '23505') {
+          throw new Error('This society already has a registered printer owner. Please select a different society or contact support.')
+        }
+        throw ownerErr
+      }
 
       // 5. Store success data and navigate
       sessionStorage.setItem('reg_success', JSON.stringify({
