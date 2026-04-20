@@ -1,9 +1,9 @@
 # InkNeighbour — Product Requirements Document
-**Version:** 1.6  
+**Version:** 1.7  
 **Owner:** Zaheer (Zakapedia)  
 **URL:** inkneighbour.zakapedia.in  
 **Stack:** React + Vite · Supabase · Vercel  
-**Status:** Phase 1 — Build Ready
+**Status:** Phase 1 — Active Development
 
 ---
 
@@ -645,19 +645,30 @@ $$ LANGUAGE plpgsql;
 - Confirm society selection
 
 **Step 3 — Rates & Payment**
-- Pre-filled platform default rates (editable)
-- B&W per page
-- Colour per page
-- Delivery fee (can be set to 0)
-- UPI ID field (India only; hidden for other countries in Phase 2)
+- Pre-filled platform default rates (editable): B&W ₹2/page, Colour ₹5/page, Delivery ₹8
+- Shop name (pre-filled from society name, editable)
+- UPI ID field (optional)
 - Cash on Delivery toggle (on by default)
-- Preview: "Your shop URL will be: inkneighbour.zakapedia.in/[slug]"
 - Submit: "Launch My Shop 🚀"
-- **On submit:** Owner record created with `status = 'pending'` — shop is NOT live until admin approves
+- **On submit — two paths depending on Supabase email confirmation setting:**
+
+  **Path A (email confirmation enabled — recommended for production):**
+  1. `supabase.auth.signUp()` called first → no session returned
+  2. All DB writes deferred: payload written to `localStorage.reg_pending`
+  3. Redirect to `/register/success` showing "Check your email" screen
+  4. After user clicks email link → lands on `/dashboard`
+  5. Dashboard detects `reg_pending` → creates society (if new) + owner row → clears `reg_pending`
+
+  **Path B (email confirmation disabled — development/testing):**
+  1. `supabase.auth.signUp()` called → session returned immediately
+  2. Society created (if new), owner row inserted with `status = 'pending'`
+  3. Redirect to `/register/success` showing "Shop submitted!" screen
+
+  In both paths, the owner's `status = 'pending'` — shop is NOT live until admin approves.
 
 **Validation:**
-- Phone: format validation per country
-- Email: standard validation
+- Phone: format validation per country (India: must start with 6–9)
+- Email: standard format validation
 - Rates: must be > 0 for B&W and Colour
 - Society: must be selected or confirmed
 
@@ -665,14 +676,21 @@ $$ LANGUAGE plpgsql;
 
 ### 5.5 Screen 6 — Registration Submitted Confirmation
 
-**Purpose:** Acknowledge the Owner's registration and set expectations for the approval wait.
+**Purpose:** Acknowledge the Owner's registration and set expectations.
 
-**Content:**
-- Clock icon (amber — pending state, not celebration)
-- "Registration submitted!"
-- "Your shop is under review by our admin team. You will be notified once it is approved and ready to take orders."
-- Shop URL shown for reference (copy button + WhatsApp share)
-- "Go to your dashboard →"
+**State A — Email verification required (`pendingEmail` present in session):**
+- Mail icon (violet)
+- "Check your email" heading
+- "We sent a confirmation link to [email]. Click the link to verify your account."
+- What happens next: email confirm → review → WhatsApp link → go live
+- "Didn't receive it? Check your spam, or start again" link
+
+**State B — Shop submitted (no email verification needed):**
+- Checkmark icon (green)
+- "Shop submitted!" heading
+- "Your shop is under review. Once approved, we'll send your shop link to your WhatsApp."
+- While you wait: checklist (enable notifications, load printer, etc.)
+- "Go to Dashboard →" button
 
 **Note:** The shop is NOT live at this point. Admin must approve before the shop accepts orders.
 
@@ -1384,16 +1402,40 @@ Route protection:
 
 ```
 1. Landing page → "Register Your Printer"
-2. Step 1: Fill name, phone, email, password, flat number, country
-3. Step 2: Enter postal code → dropdown loads societies
-   a. Select existing society (if available) OR
-   b. Type new name → fuzzy match check → confirm
-4. Step 3: Adjust rates, enter UPI ID, toggle cash
-5. Submit → Supabase creates: auth user + owner row + society row
-6. Redirect to /register/success with share link
-7. WhatsApp share button pre-populated
-8. "Go to Dashboard →"
+2. Step 1 (/register): Fill name, phone, email, password, country
+   → Saved to sessionStorage.reg_step1 on Next
+3. Step 2 (/register/society): Enter postal code → search societies
+   a. Select existing society (available slot only) OR
+   b. Type new name → Fuse.js fuzzy match warning → confirm
+   → Saved to sessionStorage.reg_step2 on select
+4. Step 3 (/register/rates): Adjust shop name, rates, UPI ID, cash toggle
+
+5a. EMAIL CONFIRMATION ENABLED (production default):
+   → supabase.auth.signUp() → no session returned
+   → ownerPayload saved to localStorage.reg_pending
+     { isNewSociety, societyId|societyName|societyPostalCode,
+       name, phone, bw_rate, color_rate, delivery_fee, ... }
+   → sessionStorage.reg_success set with { pendingEmail, ownerName }
+   → Redirect to /register/success (Check your email screen)
+   → User clicks email link → lands on /dashboard
+   → Dashboard reads reg_pending → creates society (if isNewSociety) + owner row
+   → Clears reg_pending → reloads → owner status = 'pending'
+
+5b. EMAIL CONFIRMATION DISABLED (dev/testing):
+   → supabase.auth.signUp() → session returned immediately
+   → Society INSERT (if new society)
+   → Owner INSERT with status = 'pending'
+   → sessionStorage.reg_success set with { ownerName }
+   → Redirect to /register/success (Shop submitted screen)
+
+6. Admin sees shop in /admin and /admin/directory (Pending tab)
+7. Admin clicks Approve → owner status = 'active'
+8. Owner notified via WhatsApp → owner goes live from dashboard
 ```
+
+**Guard against duplicate takeover:** `owners.society_id` has a DB-level UNIQUE constraint. INSERT fails with PostgreSQL error code `23505` → friendly message: "This society already has a registered printer owner."
+
+**Known issue:** During Step 2, RLS on the `owners` table blocks anonymous reads, so all societies appear "Available" regardless of actual taken status. The DB constraint is the real guard. Fix tracked in `docs/todo-supabase-rls-society-availability.md`.
 
 ### 10.2 Customer Order Flow
 
@@ -1790,44 +1832,51 @@ Sitemap auto-generated from active society slugs.
 
 | Scenario | Behaviour |
 |---|---|
-| Society already registered | Clear message + show existing owner's first name |
+| Society already registered (DB 23505) | Toast: "This society already has a registered printer owner. Please select a different society or contact support." |
+| User already has a shop (DB 23505 on user_id) | Toast: "You already have a shop registered. Please log in to manage it." |
+| Email already in use (signUp error) | Toast shows Supabase error message verbatim |
+| Email confirmation required (no session) | All DB writes deferred to `localStorage.reg_pending`, redirect to Check your email screen |
+| reg_pending present, no owner row in dashboard | Shows "Shop setup incomplete" screen with step-by-step fix instructions |
 | File upload fails | Friendly retry message |
 | File too large (>10MB) | "Your file is too large. Please compress it and try again." |
-| Page count detection fails | Show "We couldn't detect the page count. The owner will confirm before printing." |
+| Page count detection fails | "We couldn't detect the page count. The owner will confirm before printing." |
 | Shop is paused | Customer sees: "This shop is temporarily closed. Try again later." |
 | Network error | Toast with retry option |
 | Invalid slug | 404 page with link back to home |
+| Feedback URL expired | "This feedback link has expired. Thank you for your feedback!" |
+| Unauthorized dashboard access | Redirect to `/login` |
 
 ---
 
 ## 14. Phase Roadmap
 
 ### Phase 1 — MVP (Build Now)
-- [ ] Landing page with pincode search
-- [ ] Owner registration (3 steps)
-- [ ] Society creation with fuzzy match
-- [ ] Owner dashboard (job queue, tabs, actions)
-- [ ] Earnings summary
-- [ ] Customer order form (upload + settings + price)
-- [ ] Order confirmation with UPI QR
-- [ ] Customer feedback form (`/feedback/:job-id`)
-- [ ] Owner feedback dashboard tab
-- [ ] Star rating shown on shop page and search results
-- [ ] Admin flagging for low-rated shops
-- [ ] **Availability system — manual toggle + pre-commitment prompt**
-- [ ] **Availability system — schedule configuration**
-- [ ] **Availability system — SLA enforcement (15min, auto-cancel, reminders)**
-- [ ] **Availability system — system override (FORCED_OFF + cooldown)**
-- [ ] **Availability system — reliability score calculation**
-- [ ] **Availability system — active job limit enforcement**
-- [ ] **Availability system — next available time display**
-- [ ] **Availability system — customer-facing status mapping**
-- [ ] Platform admin panel (basic)
-- [ ] File auto-delete on delivery AND cancellation (keep storage near zero)
-- [ ] PWA setup (vite-plugin-pwa, manifest, service worker)
-- [ ] iOS install banner (Safari instruction prompt)
-- [ ] Push notifications for Owner (VAPID + Supabase Edge Function)
-- [ ] Global-ready architecture (i18n, currency, country config)
+- [x] Landing page with pincode search
+- [x] Owner registration (3 steps) — with email confirmation deferral pattern
+- [x] Society creation with fuzzy match (Fuse.js)
+- [x] Owner dashboard (job queue, tabs, actions)
+- [x] Earnings summary (`/dashboard/earnings`)
+- [x] Customer order form (upload + settings + price)
+- [x] Order confirmation with UPI QR
+- [x] Customer feedback form (`/feedback/:job-id`)
+- [x] Owner feedback dashboard tab (`/dashboard/feedback`)
+- [x] Star rating shown on shop page
+- [x] **Availability system — manual toggle + pre-commitment prompt**
+- [x] **Availability system — schedule configuration (`/dashboard/availability`)**
+- [x] **Availability system — reliability score calculation**
+- [x] **Availability system — soft lock (FORCED_OFF + cooldown)**
+- [x] **Availability system — active job limit enforcement**
+- [x] Platform admin panel (pending approvals, shop directory, status management)
+- [x] File auto-delete on delivery AND cancellation
+- [x] PWA setup (vite-plugin-pwa, manifest, service worker)
+- [x] iOS install banner (Safari instruction prompt)
+- [x] Push notifications for Owner (VAPID + Supabase Edge Function)
+- [x] Global-ready architecture (i18n, currency, country config)
+- [x] Test suite (Vitest + Testing Library, 280+ tests across 26 files)
+- [ ] **Availability system — SLA enforcement (15min timer, auto-cancel, reminders)** — not yet
+- [ ] **Availability system — next available time display** — not yet
+- [ ] Admin flagging for low-rated shops — not yet
+- [ ] ⚠️ **RLS fix: society availability display** — all societies show as Available due to anonymous RLS restriction on `owners` table. DB constraint prevents actual takeover. Fix tracked in `docs/todo-supabase-rls-society-availability.md`
 
 ### Phase 2 — Growth
 - [ ] WATI WhatsApp automated messages (order confirmation, delivery, feedback request)

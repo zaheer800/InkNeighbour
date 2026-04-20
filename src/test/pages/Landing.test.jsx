@@ -21,33 +21,36 @@ function renderLanding() {
 describe('Landing page', () => {
   it('renders the hero tagline', () => {
     renderLanding()
-    // Hero title is hardcoded across multiple elements
-    expect(screen.getByText(/Print it\./i)).toBeInTheDocument()
+    // "Print it." appears in multiple tagline elements — getAllByText is appropriate
+    const matches = screen.getAllByText(/Print it\./i)
+    expect(matches.length).toBeGreaterThan(0)
   })
 
   it('renders the hero subtitle', () => {
     renderLanding()
-    expect(screen.getByText('landing.hero_sub')).toBeInTheDocument()
+    expect(screen.getByText(/Find a home printer in your building/i)).toBeInTheDocument()
   })
 
   it('renders the pincode input', () => {
     renderLanding()
-    expect(screen.getByPlaceholderText('landing.pincode_placeholder')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/Enter your pincode/i)).toBeInTheDocument()
   })
 
   it('renders the Find button', () => {
     renderLanding()
-    expect(screen.getByRole('button', { name: /^find$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /find printer/i })).toBeInTheDocument()
   })
 
-  it('Find button is disabled when pincode is empty', () => {
+  it('does not navigate when pincode is empty and form is submitted', () => {
     renderLanding()
-    expect(screen.getByRole('button', { name: /^find$/i })).toBeDisabled()
+    const input = screen.getByPlaceholderText(/Enter your pincode/i)
+    fireEvent.submit(input.closest('form'))
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 
   it('navigates to /find with pincode on form submit', () => {
     renderLanding()
-    const input = screen.getByPlaceholderText('landing.pincode_placeholder')
+    const input = screen.getByPlaceholderText(/Enter your pincode/i)
     fireEvent.change(input, { target: { value: '400001' } })
     fireEvent.submit(input.closest('form'))
     expect(mockNavigate).toHaveBeenCalledWith('/find?pincode=400001')
