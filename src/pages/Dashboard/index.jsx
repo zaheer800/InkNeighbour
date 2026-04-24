@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Bell, RefreshCw, ToggleLeft, ToggleRight,
@@ -18,6 +18,7 @@ import ReliabilityScore from '../../components/ReliabilityScore'
 import PreCommitmentPrompt from '../../components/PreCommitmentPrompt'
 import { formatCurrency } from '../../lib/countries'
 import { setupOwnerPush } from '../../notifications/index'
+import { playNotificationSound, unlockAudio } from '../../lib/sound'
 import { buildShopShareLink } from '../../notifications/whatsapp'
 import { makeShopSlug } from '../../lib/slugify'
 
@@ -47,6 +48,9 @@ export default function DashboardJobs() {
   const [showCommitPrompt, setShowCommitPrompt] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
   const [autoCompleting, setAutoCompleting] = useState(false)
+
+  // Track submitted job IDs to detect new arrivals; null = initial load (no sound).
+  const knownSubmittedIdsRef = useRef(null)
 
   // After email-confirmation redirect: complete pending owner creation
   useEffect(() => {
@@ -110,6 +114,27 @@ export default function DashboardJobs() {
     complete()
   }, [ownerLoading, owner, autoCompleting])
 
+  // Detect new submitted jobs and play notification sound.
+  useEffect(() => {
+    const currentIds = new Set(jobs.filter(j => j.status === 'submitted').map(j => j.id))
+    if (knownSubmittedIdsRef.current !== null) {
+      for (const id of currentIds) {
+        if (!knownSubmittedIdsRef.current.has(id)) {
+          playNotificationSound()
+          break
+        }
+      }
+    }
+    knownSubmittedIdsRef.current = currentIds
+  }, [jobs])
+
+  // Poll for new jobs every 30 s when shop is live.
+  useEffect(() => {
+    if (owner?.status !== 'active') return
+    const interval = setInterval(() => fetchJobs(), 30_000)
+    return () => clearInterval(interval)
+  }, [owner?.status, fetchJobs])
+
   const countryCode = owner?.country_code || 'IN'
   const fmt = v => formatCurrency(v, countryCode)
 
@@ -127,6 +152,7 @@ export default function DashboardJobs() {
 
   function handleToggleClick() {
     if (!owner) return
+    unlockAudio()
     if (isSoftLocked || reliabilitySoftLocked) {
       const lockUntil = owner.soft_lock_until
         ? new Date(owner.soft_lock_until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -163,6 +189,7 @@ export default function DashboardJobs() {
 
   async function enablePush() {
     if (!owner) return
+    unlockAudio()
     const sub = await setupOwnerPush(owner.id)
     if (sub) toast.success('Push notifications enabled!')
     else toast.error('Could not enable notifications. Check browser permissions.')

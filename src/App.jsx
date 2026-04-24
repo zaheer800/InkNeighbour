@@ -17,6 +17,7 @@ import OrderConfirm from './pages/OrderConfirm'
 import FeedbackForm from './pages/FeedbackForm'
 import Admin from './pages/Admin'
 import AdminDirectory from './pages/AdminDirectory'
+import AdminJobs from './pages/AdminJobs'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import IOSInstallBanner from './components/IOSInstallBanner'
@@ -59,6 +60,7 @@ export default function App() {
         {/* Platform admin — protected + admin email only */}
         <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
         <Route path="/admin/directory" element={<AdminRoute><AdminDirectory /></AdminRoute>} />
+        <Route path="/admin/jobs" element={<AdminRoute><AdminJobs /></AdminRoute>} />
 
         {/* Static pages */}
         <Route path="/privacy" element={<Privacy />} />

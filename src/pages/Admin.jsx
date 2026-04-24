@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Clock, LogOut, MessageCircle, CheckCircle2, ArrowRight, Bell, MailCheck, MailX } from 'lucide-react'
@@ -30,6 +30,7 @@ export default function Admin() {
   const [savingDefaults, setSavingDefaults] = useState(false)
   const [justApproved, setJustApproved] = useState(null)
 
+  const navigate = useNavigate()
   const fmt = v => formatCurrency(v, 'IN')
 
   useEffect(() => {
@@ -132,15 +133,20 @@ export default function Admin() {
         {/* Overview stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: t('admin.societies'), value: societies.length },
-            { label: t('admin.shops'),     value: shops.filter(s => s.status === 'active').length },
-            { label: t('admin.jobs_today'), value: stats.jobs_today },
-            { label: t('admin.gmv'),       value: fmt(stats.gmv_month) }
+            { label: t('admin.societies'),  value: societies.length,                              href: '/admin/directory' },
+            { label: t('admin.shops'),      value: shops.filter(s => s.status === 'active').length, href: '/admin/directory' },
+            { label: t('admin.jobs_today'), value: stats.jobs_today,                              href: '/admin/jobs?period=today' },
+            { label: t('admin.gmv'),        value: fmt(stats.gmv_month),                          href: '/admin/jobs?period=month' }
           ].map(s => (
-            <div key={s.label} className="bg-surface rounded-xl shadow-card p-4 text-center">
+            <button
+              key={s.label}
+              onClick={() => navigate(s.href)}
+              className="bg-surface rounded-xl shadow-card p-4 text-center hover:shadow-md hover:scale-[1.02] transition-all active:scale-[0.98] cursor-pointer"
+            >
               <p className="font-display text-3xl font-black text-ink">{s.value}</p>
               <p className="text-sm text-muted mt-1">{s.label}</p>
-            </div>
+              <p className="text-[11px] text-violet mt-1 font-medium">View details →</p>
+            </button>
           ))}
         </div>
 
