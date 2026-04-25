@@ -70,6 +70,7 @@ export function useOwner() {
 
     // Cannot toggle until admin approves the shop
     if (owner.status === 'pending') return { error: new Error('Shop awaiting admin approval') }
+    if (owner.status === 'inactive') return { error: new Error('Shop has been rejected') }
 
     // Prevent going live if soft-locked
     if (owner.status !== 'active' && owner.soft_lock_until) {

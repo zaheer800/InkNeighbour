@@ -13,7 +13,13 @@
       "Bash(grep -v \"^--$\")",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(powershell *)",
+      "mcp__plugin_supabase_supabase__deploy_edge_function",
+      "mcp__plugin_supabase_supabase__get_project_url",
+      "Bash(npx playwright *)",
+      "Bash(wait)",
+      "Bash(node screenshots/playwright-run.mjs)"
     ]
   }
 }

@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import StarRating from '../components/StarRating'
 import Button from '../components/ui/Button'
 import AppNav from '../components/AppNav'
+import Footer from '../components/Footer'
 
 const THUMB_BASE = 'flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 font-bold min-h-[80px] transition-colors cursor-pointer'
 
@@ -126,8 +127,9 @@ export default function FeedbackForm() {
   const societyName = owner?.societies?.name || ''
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-screen bg-bg flex flex-col overflow-x-hidden">
       <AppNav />
+      <div className="flex-1">
       <div className="page-hero px-4 py-12 text-white text-center relative">
         <div className="relative z-10 max-w-sm mx-auto space-y-2">
           <p className="text-4xl">🖨️</p>
@@ -206,6 +208,8 @@ export default function FeedbackForm() {
           {submitting ? t('feedback_form.submitting') : t('feedback_form.submit')}
         </Button>
       </div>
+      </div>
+      <Footer />
     </div>
   )
 }

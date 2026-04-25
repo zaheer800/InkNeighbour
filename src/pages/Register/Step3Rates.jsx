@@ -8,17 +8,17 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { supabase } from '../../lib/supabase'
 import { makeShopSlug } from '../../lib/slugify'
-
-const PLATFORM_DEFAULTS = { bw: 200, color: 500, delivery: 800 } // paise
+import Footer from '../../components/Footer'
 
 export default function Step3Rates() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [step1, setStep1] = useState(null)
   const [step2, setStep2] = useState(null)
+  const [platformDefaults, setPlatformDefaults] = useState({ bw: 200, color: 500, delivery: 800 })
   const [form, setForm] = useState({
     shop_name: '',
-    bw_rate: '2',      // display in rupees
+    bw_rate: '2',
     color_rate: '5',
     delivery_fee: '8',
     upi_id: '',
@@ -35,6 +35,25 @@ export default function Step3Rates() {
     setStep1(JSON.parse(s1))
     setStep2(parsed2)
     setForm(f => ({ ...f, shop_name: `${parsed2.society.name} Print Shop` }))
+
+    supabase.from('platform_config').select('key, value').then(({ data: config }) => {
+      if (!config?.length) return
+      const bw  = config.find(c => c.key === 'default_bw_rate')
+      const col = config.find(c => c.key === 'default_color_rate')
+      const del = config.find(c => c.key === 'default_delivery_fee')
+      const defaults = {
+        bw:       bw  ? parseInt(bw.value)  : 200,
+        color:    col ? parseInt(col.value) : 500,
+        delivery: del ? parseInt(del.value) : 800,
+      }
+      setPlatformDefaults(defaults)
+      setForm(f => ({
+        ...f,
+        bw_rate:      (defaults.bw / 100).toString(),
+        color_rate:   (defaults.color / 100).toString(),
+        delivery_fee: (defaults.delivery / 100).toString(),
+      }))
+    })
   }, [navigate])
 
   function set(field, value) {
@@ -64,13 +83,29 @@ export default function Step3Rates() {
         password: step1.password,
         options: { emailRedirectTo: `${window.location.origin}/dashboard` }
       })
-      if (authError) throw authError
+
+      // Email confirmation OFF: Supabase returns 422 for an existing email
+      if (authError) {
+        if (authError.status === 422 || authError.message?.toLowerCase().includes('already registered')) {
+          sessionStorage.removeItem('reg_step1')
+          sessionStorage.removeItem('reg_step2')
+          throw new Error('An account already exists with this email. Please sign in instead.')
+        }
+        throw authError
+      }
+
+      // Email confirmation ON: Supabase returns empty identities[] for an existing email
+      if (authData.user?.identities?.length === 0) {
+        sessionStorage.removeItem('reg_step1')
+        sessionStorage.removeItem('reg_step2')
+        throw new Error('An account already exists with this email. Please sign in instead.')
+      }
 
       // Build the data we'll need whether we continue now or after email verification.
       const ownerPayload = {
         isNewSociety:       step2.isNew,
         societyId:          step2.isNew ? null : step2.society.id,
-        societyName:        step2.isNew ? step2.society.name : null,
+        societyName:        step2.society.name,
         societyPostalCode:  step2.isNew ? step2.postalCode : null,
         name:         step1.name,
         phone:        step1.phone,
@@ -164,10 +199,30 @@ export default function Step3Rates() {
 
       if (ownerErr) {
         if (ownerErr.code === '23505') {
-          throw new Error('This society already has a registered printer owner. Please select a different society or contact support.')
+          if (ownerErr.message?.includes('phone')) {
+            throw new Error('This phone number is already registered to another shop. Please use a different number.')
+          }
+          if (ownerErr.message?.includes('user_id')) {
+            sessionStorage.removeItem('reg_step1')
+            sessionStorage.removeItem('reg_step2')
+            throw new Error('You already have a shop registered. Please sign in to manage it.')
+          }
+          throw new Error('This society already has a registered owner. Please choose a different society.')
         }
         throw ownerErr
       }
+
+      // Notify admin of new pending shop
+      await supabase.functions.invoke('notify-admin', {
+        body: {
+          owner_name:   ownerPayload.name,
+          shop_name:    ownerPayload.shop_name,
+          society_name: ownerPayload.societyName,
+          email:        step1.email,
+          phone:        ownerPayload.phone,
+          admin_url:    `${window.location.origin}/admin`,
+        }
+      })
 
       sessionStorage.setItem('reg_success', JSON.stringify({ ownerName: step1.name }))
       sessionStorage.removeItem('reg_step1')
@@ -183,8 +238,9 @@ export default function Step3Rates() {
   if (!step1 || !step2) return null
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-screen bg-bg flex flex-col overflow-x-hidden">
       <AppNav back="/register/society" />
+      <div className="flex-1">
       <div className="page-hero px-4 py-6 text-white relative">
         <div className="relative z-10 max-w-lg mx-auto">
           <p className="text-white/60 text-sm font-medium mb-1">{t('common.step_of', { current: 3, total: 3 })}</p>
@@ -223,7 +279,7 @@ export default function Step3Rates() {
             error={errors.bw_rate}
             min="0"
             step="0.5"
-            hint={`Platform default: ₹${PLATFORM_DEFAULTS.bw / 100}/page`}
+            hint={`Platform default: ₹${(platformDefaults.bw / 100).toFixed(1)}/page`}
           />
           <Input
             label={t('register.color_rate_label')}
@@ -233,7 +289,7 @@ export default function Step3Rates() {
             error={errors.color_rate}
             min="0"
             step="0.5"
-            hint={`Platform default: ₹${PLATFORM_DEFAULTS.color / 100}/page`}
+            hint={`Platform default: ₹${(platformDefaults.color / 100).toFixed(1)}/page`}
           />
           <Input
             label={t('register.delivery_fee_label')}
@@ -242,7 +298,7 @@ export default function Step3Rates() {
             onChange={e => set('delivery_fee', e.target.value)}
             min="0"
             step="1"
-            hint={`Platform default: ₹${PLATFORM_DEFAULTS.delivery / 100}`}
+            hint={`Platform default: ₹${(platformDefaults.delivery / 100).toFixed(0)}`}
           />
         </div>
 
@@ -272,6 +328,8 @@ export default function Step3Rates() {
           {submitting ? t('register.launching') : t('register.launch_cta')}
         </Button>
       </div>
+      </div>
+      <Footer />
     </div>
   )
 }

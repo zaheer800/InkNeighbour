@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Printer, ArrowRight, Mail, Lock, ChevronLeft, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { Printer, ArrowRight, Mail, Lock, ChevronLeft, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import Button from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -17,6 +17,7 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -130,8 +131,12 @@ export default function Login() {
                     </div>
                     <div className="relative">
                       <Lock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                      <input id="login-password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required autoComplete="current-password"
-                        className="w-full min-h-[52px] pl-11 pr-4 py-3 rounded-xl border border-border bg-surface text-base text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-violet/40 focus:border-violet transition-colors" />
+                      <input id="login-password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required autoComplete="current-password"
+                        className="w-full min-h-[52px] pl-11 pr-12 py-3 rounded-xl border border-border bg-surface text-base text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-violet/40 focus:border-violet transition-colors" />
+                      <button type="button" tabIndex={-1} aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition-colors flex items-center justify-center min-w-[44px] min-h-[44px]">
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
                     </div>
                   </div>
 

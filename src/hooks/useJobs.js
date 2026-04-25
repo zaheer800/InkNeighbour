@@ -78,8 +78,8 @@ export function useJobs() {
 
     if (error) return { error }
 
-    // Auto-delete file on delivered or cancelled
-    if (status === 'delivered' || status === 'cancelled') {
+    // Auto-delete file on delivery or cancellation
+    if (status === 'feedback_pending' || status === 'cancelled') {
       await deleteJobFile(jobId)
     }
 
@@ -89,7 +89,7 @@ export function useJobs() {
 
   const acceptJob = useCallback((jobId) => updateJobStatus(jobId, 'accepted'), [updateJobStatus])
   const markPrinting = useCallback((jobId) => updateJobStatus(jobId, 'printing'), [updateJobStatus])
-  const markDelivered = useCallback((jobId) => updateJobStatus(jobId, 'delivered'), [updateJobStatus])
+  const markDelivered = useCallback((jobId) => updateJobStatus(jobId, 'feedback_pending'), [updateJobStatus])
   const cancelJob = useCallback((jobId) => updateJobStatus(jobId, 'cancelled'), [updateJobStatus])
 
   const getSignedUrl = useCallback(async (filePath) => {

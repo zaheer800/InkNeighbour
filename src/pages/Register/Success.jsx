@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Mail, MessageCircle, Clock, Printer, Bell } from 'lucide-react'
 import Button from '../../components/ui/Button'
+import AppNav from '../../components/AppNav'
+import Footer from '../../components/Footer'
 
 export default function Success() {
   const { t } = useTranslation()
@@ -20,15 +22,10 @@ export default function Success() {
   const needsEmailVerify = Boolean(data.pendingEmail)
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-4 py-16">
+    <div className="min-h-screen bg-bg flex flex-col overflow-x-hidden">
+      <AppNav />
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
       <div className="max-w-md w-full space-y-6 text-center">
-
-        {/* Wordmark */}
-        <div>
-          <span className="font-display font-black text-xl text-ink">
-            Ink<span className="text-orange">Neighbour</span>
-          </span>
-        </div>
 
         {/* Icon */}
         <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto ${needsEmailVerify ? 'bg-violet/10' : 'bg-green/15'}`}>
@@ -103,6 +100,8 @@ export default function Success() {
           </>
         )}
       </div>
+      </div>
+      <Footer />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 # InkNeighbour — Product Requirements Document
-**Version:** 1.7  
+**Version:** 1.8  
 **Owner:** Zaheer (Zakapedia)  
 **URL:** inkneighbour.zakapedia.in  
 **Stack:** React + Vite · Supabase · Vercel  
@@ -580,6 +580,8 @@ $$ LANGUAGE plpgsql;
 | 13 | Order Confirmation | `/:society-slug/confirm/:job-id` | Public |
 | 14 | Customer Feedback Form | `/feedback/:job-id` | Public (time-limited) |
 | 15 | Platform Admin | `/admin` | Admin only |
+| 16 | Admin — Shops & Societies Directory | `/admin/directory` | Admin only |
+| 17 | Admin — Jobs Detail View | `/admin/jobs` | Admin only |
 
 ---
 
@@ -727,6 +729,17 @@ $$ LANGUAGE plpgsql;
 - `delivered` → [View Details]
 
 **Empty state:** "No pending jobs. Share your shop link to get started! 📋"
+
+**Auto-refresh (polling):**
+- While the shop is live (`status = active`), the dashboard polls Supabase every 30 seconds and refreshes the job list automatically.
+- No manual refresh needed for active owners.
+
+**New-order notification sound:**
+- When a new `submitted` job appears in the list (detected on any refresh — polling or manual), the dashboard plays a short two-tone rising chime using the Web Audio API.
+- The sound is generated programmatically — no audio file required.
+- Implemented in `/src/lib/sound.js` (`playNotificationSound()`).
+- AudioContext is unlocked on the owner's first tap of the "Go live" toggle or the "Enable notifications" bell — both are natural first interactions on dashboard load.
+- Sound plays silently on unsupported browsers; no error is shown.
 
 ---
 
@@ -909,12 +922,21 @@ Anything to add? (optional)
 
 **Sections:**
 
-*Overview Stats*
-- Total registered societies
-- Total active shops
-- Total jobs today / this month
-- Total GMV (gross merchandise value)
-- Platform commission (when enabled)
+*Overview Stats (clickable)*
+Each stat card is a clickable button with hover/active feedback. Tapping a card opens a detailed view:
+
+| Stat | Links to | Detail view |
+|---|---|---|
+| Total registered societies | `/admin/directory` | Full societies + shops list |
+| Total active shops | `/admin/directory` | Full shops list |
+| Jobs today | `/admin/jobs?period=today` | All jobs created today |
+| GMV this month | `/admin/jobs?period=month` | All delivered jobs this month |
+
+*Admin Jobs detail page (`/admin/jobs`):*
+- Accessible from stat cards only (admin-protected route)
+- Two modes via `?period=` query param: `today` (all statuses) or `month` (delivered only)
+- Summary card showing count and total value at the top
+- Job list showing: job number, status badge, shop name, society, customer name + flat, print type, page count × copies, amount, timestamp
 
 *Pending Approvals* (shown prominently at top when any exist)
 - Badge count of pending shops
@@ -1384,14 +1406,19 @@ Active indicator: small violet dot below icon
 /dashboard                 Owner dashboard (jobs) [protected]
 /dashboard/earnings        Owner earnings [protected]
 /dashboard/settings        Owner settings [protected]
+/dashboard/feedback        Owner feedback [protected]
+/dashboard/availability    Owner availability schedule [protected]
 /admin                     Platform admin [admin only]
+/admin/directory           Shops & societies directory [admin only]
+/admin/jobs                Jobs detail view (today / monthly GMV) [admin only]
 /:slug                     Society shop page (dynamic)
 /:slug/confirm/:jobId      Order confirmation (dynamic)
+/feedback/:jobId           Customer feedback form (dynamic, 7-day expiry)
 ```
 
 Route protection:
 - `/dashboard/*` → requires Supabase auth session
-- `/admin` → requires admin email match
+- `/admin/*` → requires Supabase auth session + admin email match
 - All other routes → public
 
 ---
@@ -1482,8 +1509,12 @@ No API required. Uses `wa.me` pre-filled links opened by the user. Owner taps to
 
 | Event | Who notified | Method |
 |---|---|---|
-| New job placed | Owner | Browser notification (if permission granted) |
+| New job placed | Owner | Browser push notification (if permission granted) |
+| New job placed | Owner | In-app chime sound (Web Audio API, while dashboard is open) |
 | New feedback received | Owner | Badge on Feedback tab in dashboard |
+
+**In-app sound alert:**
+While the owner's dashboard is open and the shop is live, a 30-second polling loop checks for new submitted jobs. When a new job ID appears that was not in the previous fetch, a two-tone rising chime plays immediately in the browser — no server-push or permission needed. This mirrors the Uber/Rapido driver alert pattern. Implemented in `/src/lib/sound.js`.
 
 **WhatsApp `wa.me` touchpoints (4 in Phase 1):**
 
@@ -1867,6 +1898,10 @@ Sitemap auto-generated from active society slugs.
 - [x] **Availability system — soft lock (FORCED_OFF + cooldown)**
 - [x] **Availability system — active job limit enforcement**
 - [x] Platform admin panel (pending approvals, shop directory, status management)
+- [x] **Admin stat cards clickable** — each card links to a detailed view (`/admin/jobs?period=today|month` or `/admin/directory`)
+- [x] **Admin Jobs detail page** (`/admin/jobs`) — filterable list of jobs by period with summary stats
+- [x] **Owner dashboard auto-polls** every 30 s while shop is live — no manual refresh needed
+- [x] **New-order notification sound** — in-app chime (Web Audio API) plays on every new submitted job detected during polling or refresh
 - [x] File auto-delete on delivery AND cancellation
 - [x] PWA setup (vite-plugin-pwa, manifest, service worker)
 - [x] iOS install banner (Safari instruction prompt)
@@ -1935,7 +1970,9 @@ inkneighbour/
 │   │   ├── ShopPage.jsx
 │   │   ├── OrderConfirm.jsx
 │   │   ├── FeedbackForm.jsx
-│   │   └── Admin.jsx
+│   │   ├── Admin.jsx
+│   │   ├── AdminDirectory.jsx
+│   │   └── AdminJobs.jsx          ← Jobs detail view (today / monthly GMV)
 │   ├── lib/
 │   │   ├── supabase.js        ← Supabase client init
 │   │   ├── countries.js       ← Country config (currency, labels)
@@ -1943,6 +1980,7 @@ inkneighbour/
 │   │   ├── slugify.js         ← Society name → URL slug
 │   │   ├── storage.js         ← deleteJobFile() — called on delivered + cancelled
 │   │   ├── availability.js    ← getEffectiveState(), resolveNextAvailable()
+│   │   ├── sound.js           ← playNotificationSound() — Web Audio API chime
 │   │   └── fuzzyMatch.js      ← Fuse.js wrapper
 │   ├── payments/
 │   │   ├── index.js           ← Payment method router
@@ -2039,4 +2077,4 @@ Add CNAME record in domain registrar pointing to cname.vercel-dns.com
 ---
 
 *Document maintained by Zaheer · Zakapedia · inkneighbour.zakapedia.in*  
-*Last updated: April 2025*
+*Last updated: April 2026*
