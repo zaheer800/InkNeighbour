@@ -18,6 +18,15 @@ function buildWhatsAppLink(phone, shopUrl, ownerName, shopName) {
   return `https://wa.me/${number}?text=${encodeURIComponent(text)}`
 }
 
+function buildRejectionWhatsAppLink(phone, ownerName, shopName) {
+  const supportWhatsApp = import.meta.env.VITE_CONTACT_WHATSAPP
+  const supportContact = supportWhatsApp ? `https://wa.me/${supportWhatsApp}` : import.meta.env.VITE_ADMIN_EMAIL
+  const text = `Hi ${ownerName},\n\nWe regret to inform you that your InkNeighbour shop application for "${shopName}" has not been approved at this time.\n\nIf you have any questions, please contact us: ${supportContact}`
+  const cleaned = phone.replace(/\D/g, '')
+  const number = cleaned.startsWith('91') ? cleaned : `91${cleaned}`
+  return `https://wa.me/${number}?text=${encodeURIComponent(text)}`
+}
+
 export default function Admin() {
   const { t } = useTranslation()
   const { signOut } = useAuth()
@@ -29,6 +38,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true)
   const [savingDefaults, setSavingDefaults] = useState(false)
   const [justApproved, setJustApproved] = useState(null)
+  const [justRejected, setJustRejected] = useState(null)
 
   const navigate = useNavigate()
   const fmt = v => formatCurrency(v, 'IN')
@@ -94,11 +104,24 @@ export default function Admin() {
     toast.success('Shop approved!')
   }
 
-  async function rejectShop(shopId) {
-    const { error } = await supabase.from('owners').update({ status: 'inactive' }).eq('id', shopId)
+  async function rejectShop(shop) {
+    const { error } = await supabase.from('owners').update({ status: 'inactive' }).eq('id', shop.id)
     if (error) { toast.error('Failed to reject shop'); return }
-    setShops(prev => prev.map(s => s.id === shopId ? { ...s, status: 'inactive' } : s))
+    setShops(prev => prev.map(s => s.id === shop.id ? { ...s, status: 'inactive' } : s))
+    setJustRejected(shop)
     toast.success('Shop rejected.')
+
+    // Notify owner by email
+    supabase.functions.invoke('notify-owner', {
+      body: {
+        owner_id:          shop.id,
+        type:              'rejected',
+        shop_name:         shop.shop_name || shop.name,
+        society_name:      shop.societies?.name || '',
+        support_email:     import.meta.env.VITE_ADMIN_EMAIL,
+        support_whatsapp:  import.meta.env.VITE_CONTACT_WHATSAPP || undefined,
+      }
+    })
   }
 
   const pendingCount = shops.filter(s => s.status === 'pending').length
@@ -141,11 +164,10 @@ export default function Admin() {
             <button
               key={s.label}
               onClick={() => navigate(s.href)}
-              className="bg-surface rounded-xl shadow-card p-4 text-center hover:shadow-md hover:scale-[1.02] transition-all active:scale-[0.98] cursor-pointer"
+              className="group bg-surface rounded-xl shadow-card p-4 text-center hover:shadow-md hover:scale-[1.02] transition-all active:scale-[0.98] cursor-pointer"
             >
-              <p className="font-display text-3xl font-black text-ink">{s.value}</p>
+              <p className="font-display text-3xl font-black text-ink group-hover:text-violet transition-colors">{s.value}</p>
               <p className="text-sm text-muted mt-1">{s.label}</p>
-              <p className="text-[11px] text-violet mt-1 font-medium">View details →</p>
             </button>
           ))}
         </div>
@@ -176,6 +198,34 @@ export default function Admin() {
               </a>
             )}
             <button onClick={() => setJustApproved(null)} className="w-full text-xs text-muted hover:text-ink transition-colors min-h-[36px]">
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* ── Just-rejected send notification card ── */}
+        {justRejected && (
+          <div className="bg-red/10 border border-red/30 rounded-xl p-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-red/20 flex items-center justify-center shrink-0">
+                <span className="text-red font-black text-sm">✕</span>
+              </div>
+              <div>
+                <p className="font-bold text-ink">{justRejected.shop_name || justRejected.name} — rejected</p>
+                <p className="text-sm text-muted">An email has been sent to the owner. You can also notify them on WhatsApp.</p>
+              </div>
+            </div>
+            {justRejected.phone && (
+              <a
+                href={buildRejectionWhatsAppLink(justRejected.phone, justRejected.name, justRejected.shop_name || justRejected.name)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 bg-red text-white font-bold rounded-xl py-3 px-4 text-sm hover:bg-red/90 transition-colors min-h-[48px]"
+              >
+                <MessageCircle size={18} /> Notify via WhatsApp
+              </a>
+            )}
+            <button onClick={() => setJustRejected(null)} className="w-full text-xs text-muted hover:text-ink transition-colors min-h-[36px]">
               Dismiss
             </button>
           </div>
@@ -245,7 +295,7 @@ export default function Admin() {
                     {/* Actions */}
                     <div className="flex gap-2 pt-1 border-t border-border">
                       <Button size="sm" onClick={() => approveShop(shop)} className="flex-1">{t('admin.approve')}</Button>
-                      <Button size="sm" variant="danger" onClick={() => rejectShop(shop.id)} className="flex-1">{t('admin.reject')}</Button>
+                      <Button size="sm" variant="danger" onClick={() => rejectShop(shop)} className="flex-1">{t('admin.reject')}</Button>
                     </div>
                   </div>
                 )

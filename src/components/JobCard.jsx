@@ -107,8 +107,18 @@ export default function JobCard({ job, onRefresh, shopSlug }) {
         </div>
       </div>
 
-      {/* Tracking link */}
-      {shopSlug && job.customer_phone && !['cancelled','feedback_done'].includes(job.status) && (
+      {/* Tracking / feedback link */}
+      {job.customer_phone && job.status === 'feedback_pending' && (
+        <a
+          href={`https://wa.me/${job.customer_phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Hi ${job.customer_name.split(' ')[0]}, your print job ${job.job_number} has been delivered! 🎉\n\nPlease take 30 seconds to rate your experience:\n${import.meta.env.VITE_APP_URL || window.location.origin}/feedback/${job.id}`)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-xs font-semibold text-violet hover:text-violet/80 transition-colors min-h-[36px]"
+        >
+          <MessageCircle size={13} /> Send feedback request to customer
+        </a>
+      )}
+      {shopSlug && job.customer_phone && !['cancelled', 'feedback_pending', 'feedback_done'].includes(job.status) && (
         <a
           href={`https://wa.me/${job.customer_phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Hi ${job.customer_name.split(' ')[0]}, track your print order ${job.job_number} here:\n\n${(import.meta.env.VITE_APP_URL || window.location.origin)}/${shopSlug}/confirm/${job.id}`)}`}
           target="_blank"

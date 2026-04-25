@@ -61,8 +61,10 @@ export default function ShopPage() {
         }
         if (!normalizedData.owners.length) return
 
-        setShop(normalizedData)
         const owner = normalizedData.owners[0]
+        if (owner.status === 'inactive') return
+
+        setShop(normalizedData)
 
         if (owner?.id) {
           const { data: rel } = await supabase

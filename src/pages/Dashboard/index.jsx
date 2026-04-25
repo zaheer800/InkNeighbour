@@ -13,6 +13,8 @@ import { useJobs } from '../../hooks/useJobs'
 import { useReliability } from '../../hooks/useReliability'
 import JobCard from '../../components/JobCard'
 import DashboardNav from '../../components/DashboardNav'
+import AppNav from '../../components/AppNav'
+import Footer from '../../components/Footer'
 import SLACountdown from '../../components/SLACountdown'
 import ReliabilityScore from '../../components/ReliabilityScore'
 import PreCommitmentPrompt from '../../components/PreCommitmentPrompt'
@@ -92,6 +94,15 @@ export default function DashboardJobs() {
           }
         }
 
+        // Guard: if this user already has an owner record, don't insert a duplicate
+        const { data: existingOwner } = await supabase
+          .from('owners').select('id').eq('user_id', user.id).maybeSingle()
+        if (existingOwner) {
+          localStorage.removeItem('reg_pending')
+          window.location.reload()
+          return
+        }
+
         const { error } = await supabase.from('owners').insert({
           user_id:      user.id,
           name:         p.name,
@@ -105,7 +116,32 @@ export default function DashboardJobs() {
           accept_cash:  p.accept_cash,
           country_code: p.country_code,
         })
-        if (!error) localStorage.removeItem('reg_pending')
+        if (error?.code === '23505') {
+          localStorage.removeItem('reg_pending')
+          if (error.message?.includes('phone')) {
+            sessionStorage.setItem('reg_error', 'phone_taken')
+          } else if (error.message?.includes('user_id')) {
+            window.location.reload()
+            return
+          } else {
+            sessionStorage.setItem('reg_error', 'society_taken')
+          }
+          window.location.replace('/register')
+          return
+        }
+        if (!error) {
+          localStorage.removeItem('reg_pending')
+          await supabase.functions.invoke('notify-admin', {
+            body: {
+              owner_name:   p.name,
+              shop_name:    p.shop_name,
+              society_name: p.societyName,
+              email:        user.email,
+              phone:        p.phone,
+              admin_url:    `${window.location.origin}/admin`,
+            }
+          })
+        }
         window.location.reload()
       } catch {
         setAutoCompleting(false)
@@ -140,12 +176,20 @@ export default function DashboardJobs() {
 
   const today = new Date().toDateString()
   const jobsToday = jobs.filter(j => new Date(j.created_at).toDateString() === today).length
-  const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 7)
-  const monthStart = new Date(); monthStart.setDate(1)
+  const weekStart = new Date()
+  const _wd = weekStart.getDay()
+  weekStart.setDate(weekStart.getDate() - (_wd === 0 ? 6 : _wd - 1))
+  weekStart.setHours(0, 0, 0, 0)
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
   const earningsWeek  = jobs.filter(j => j.status === 'delivered' && new Date(j.updated_at) >= weekStart).reduce((s, j) => s + j.total_amount, 0)
   const earningsMonth = jobs.filter(j => j.status === 'delivered' && new Date(j.updated_at) >= monthStart).reduce((s, j) => s + j.total_amount, 0)
 
-  const filteredJobs = jobs.filter(j => j.status === activeTab)
+  const DELIVERED_STATUSES = ['delivered', 'feedback_pending', 'feedback_done']
+  const filteredJobs = activeTab === 'delivered'
+    ? jobs.filter(j => DELIVERED_STATUSES.includes(j.status))
+    : jobs.filter(j => j.status === activeTab)
 
   const shopSlug = owner?.societies?.slug
   const shopUrl = shopSlug ? `${window.location.origin}/${shopSlug}` : ''
@@ -216,8 +260,9 @@ export default function DashboardJobs() {
 
   const softLockExpiry = owner?.soft_lock_until ? new Date(owner.soft_lock_until) : null
   const isLocked = softLockExpiry && softLockExpiry > new Date()
-  const isPending = owner?.status === 'pending'
-  const isActive  = owner?.status === 'active'
+  const isPending  = owner?.status === 'pending'
+  const isInactive = owner?.status === 'inactive'
+  const isActive   = owner?.status === 'active'
 
   // Owner row doesn't exist — completing pending registration or registration was incomplete
   if (!ownerLoading && !owner) {
@@ -260,6 +305,59 @@ export default function DashboardJobs() {
             Sign out
           </button>
         </div>
+      </div>
+    )
+  }
+
+  if (isInactive) {
+    const supportEmail    = import.meta.env.VITE_ADMIN_EMAIL
+    const supportWhatsApp = import.meta.env.VITE_CONTACT_WHATSAPP
+    return (
+      <div className="min-h-screen bg-bg flex flex-col">
+        <AppNav right={
+          <button
+            onClick={signOut}
+            className="flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm font-medium min-h-[44px] px-2"
+          >
+            <LogOut size={16} /> Sign out
+          </button>
+        } />
+        <div className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="max-w-sm w-full space-y-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-red/10 flex items-center justify-center mx-auto">
+              <Lock size={32} className="text-red" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="font-display text-2xl font-black text-ink">Application rejected</h1>
+              <p className="text-muted text-base leading-relaxed">
+                Your shop <strong className="text-ink">{owner.shop_name}</strong> was not approved.
+                You cannot access the dashboard. Please contact support if you think this is a mistake.
+              </p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-5 space-y-3">
+              <p className="font-semibold text-ink text-sm">Contact support</p>
+              {supportEmail && (
+                <a
+                  href={`mailto:${supportEmail}`}
+                  className="flex items-center justify-center gap-2 text-violet text-base font-medium min-h-[48px] hover:underline"
+                >
+                  {supportEmail}
+                </a>
+              )}
+              {supportWhatsApp && (
+                <a
+                  href={`https://wa.me/${supportWhatsApp}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 bg-green text-white font-bold rounded-xl py-3 px-4 text-sm hover:bg-green/90 transition-colors min-h-[48px] w-full"
+                >
+                  <MessageCircle size={16} /> Chat on WhatsApp
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+        <Footer />
       </div>
     )
   }
@@ -314,6 +412,8 @@ export default function DashboardJobs() {
               <div className="flex items-center gap-1.5 mt-0.5">
                 {isPending ? (
                   <><Clock size={10} className="text-amber shrink-0" /><span className="text-xs text-amber">Awaiting approval</span></>
+                ) : isInactive ? (
+                  <><span className="text-xs text-red">Application rejected</span></>
                 ) : isLocked ? (
                   <><Lock size={10} className="text-red shrink-0" /><span className="text-xs text-red">Locked</span></>
                 ) : (
@@ -323,8 +423,8 @@ export default function DashboardJobs() {
               </div>
             </div>
 
-            {/* Toggle — only when approved */}
-            {!isPending && (
+            {/* Toggle — only when approved and not rejected */}
+            {!isPending && !isInactive && (
               <button
                 onClick={handleToggleClick}
                 disabled={toggling || isLocked}
@@ -447,7 +547,9 @@ export default function DashboardJobs() {
             {/* Tab chips */}
             <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
               {TABS.map(tab => {
-                const count = jobs.filter(j => j.status === tab).length
+                const count = tab === 'delivered'
+                  ? jobs.filter(j => DELIVERED_STATUSES.includes(j.status)).length
+                  : jobs.filter(j => j.status === tab).length
                 return (
                   <button
                     key={tab}

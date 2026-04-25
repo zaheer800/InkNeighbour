@@ -15,9 +15,23 @@ const PERIOD_LABELS = { today: 'Today', week: 'This week', month: 'This month', 
 
 function getPeriodStart(period) {
   const d = new Date()
-  if (period === 'today') { d.setHours(0, 0, 0, 0); return d }
-  if (period === 'week') { d.setDate(d.getDate() - 7); return d }
-  if (period === 'month') { d.setDate(1); d.setHours(0, 0, 0, 0); return d }
+  if (period === 'today') {
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+  if (period === 'week') {
+    // Monday of the current week at midnight
+    const day = d.getDay() // 0=Sun … 6=Sat
+    const daysFromMonday = day === 0 ? 6 : day - 1
+    d.setDate(d.getDate() - daysFromMonday)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+  if (period === 'month') {
+    d.setDate(1)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
   return new Date(0) // all time
 }
 
@@ -41,7 +55,13 @@ export default function DashboardEarnings() {
   const pagesTotal = deliveredJobs.reduce((s, j) => s + (j.page_count || 0) * (j.copies || 1), 0)
   const bwPages = deliveredJobs.filter(j => j.print_type === 'bw').reduce((s, j) => s + (j.page_count || 0) * (j.copies || 1), 0)
   const colorPages = deliveredJobs.filter(j => j.print_type === 'color').reduce((s, j) => s + (j.page_count || 0) * (j.copies || 1), 0)
-  const deliveryTotal = deliveredJobs.reduce((s, j) => s + (owner?.delivery_fee || 0), 0)
+  // Derive per-job delivery fee from what was actually charged, not the current owner rate
+  const deliveryTotal = deliveredJobs.reduce((s, j) => {
+    const pages = (j.page_count || 0) * (j.copies || 1)
+    const rate = j.print_type === 'color' ? (owner?.color_rate || 0) : (owner?.bw_rate || 0)
+    const printCost = pages * rate
+    return s + Math.max(0, j.total_amount - printCost)
+  }, 0)
 
   const cartridgePaise = cartridgeCost ? Math.round(parseFloat(cartridgeCost) * 100) : 0
   const netProfit = totalEarned - cartridgePaise

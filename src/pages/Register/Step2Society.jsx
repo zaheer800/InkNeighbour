@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import AppNav from '../../components/AppNav'
 import SocietySearch from '../../components/SocietySearch'
+import Footer from '../../components/Footer'
 
 export default function Step2Society() {
   const { t } = useTranslation()
@@ -37,8 +38,9 @@ export default function Step2Society() {
   if (!step1) return null
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-screen bg-bg flex flex-col overflow-x-hidden">
       <AppNav back="/register" />
+      <div className="flex-1">
       <div className="page-hero px-4 py-6 text-white relative">
         <div className="relative z-10 max-w-lg mx-auto">
           <p className="text-white/60 text-sm font-medium mb-1">{t('common.step_of', { current: 2, total: 3 })}</p>
@@ -77,6 +79,8 @@ export default function Step2Society() {
           )}
         </div>
       </div>
+      </div>
+      <Footer />
     </div>
   )
 }
