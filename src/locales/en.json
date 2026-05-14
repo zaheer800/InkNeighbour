@@ -211,7 +211,15 @@
     "danger_zone": "Danger zone",
     "deactivate": "Deactivate shop",
     "deactivate_confirm": "Are you sure? This will make your shop unavailable to customers.",
-    "saved": "Changes saved!"
+    "saved": "Changes saved!",
+    "map_pin": "Map pin",
+    "map_pin_hint": "Drag the pin or search to update your shop location for customers.",
+    "service_menu": "Additional services",
+    "service_menu_hint": "Toggle services you offer. Add a price or description for each.",
+    "save_services": "Save services",
+    "operating_hours": "Operating hours",
+    "operating_hours_hint": "Set the days and times you accept orders.",
+    "save_hours": "Save hours"
   },
   "feedback_dashboard": {
     "title": "Feedback",
