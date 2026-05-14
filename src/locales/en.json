@@ -326,6 +326,19 @@
     "shop_pending": "This shop is awaiting admin approval and is not yet open for orders.",
     "unauthorized": "Please log in to continue."
   },
+  "services": {
+    "scan": "Scanning",
+    "scan_desc": "Scan documents to PDF or image",
+    "photocopy": "Photocopying",
+    "photocopy_desc": "Black & white or colour copies",
+    "binding": "Binding",
+    "binding_desc": "Spiral or comb binding for reports",
+    "lamination": "Lamination",
+    "lamination_desc": "Protect documents with laminate sheets",
+    "passport_photo": "Passport Photos",
+    "passport_photo_desc": "Standard size for visas and IDs",
+    "not_available": "Not offered at this shop"
+  },
   "pwa": {
     "ios_install_title": "Add to Home Screen",
     "ios_install_hint": "Tap the Share button below, then \"Add to Home Screen\" for the best experience."
