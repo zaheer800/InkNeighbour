@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Search, X, MessageCircle, ChevronLeft, LogOut, RefreshCw } from 'lucide-react'
+import { Search, X, MessageCircle, ChevronLeft, LogOut, RefreshCw, Home, Store, AlertTriangle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { formatCurrency } from '../lib/countries'
@@ -10,8 +10,10 @@ import Badge from '../components/ui/Badge'
 import AppNav from '../components/AppNav'
 import Footer from '../components/Footer'
 
-const SHOP_FILTERS = ['all', 'pending', 'active', 'paused', 'inactive']
-const SHOP_FILTER_LABELS = { all: 'All', pending: 'Pending', active: 'Active', paused: 'Paused', inactive: 'Inactive' }
+const STATUS_FILTERS = ['all', 'pending', 'active', 'paused', 'inactive']
+const STATUS_LABELS  = { all: 'All', pending: 'Pending', active: 'Active', paused: 'Paused', inactive: 'Inactive' }
+const TYPE_FILTERS   = ['all', 'home', 'shop']
+const TYPE_LABELS    = { all: 'All types', home: 'Home Owners', shop: 'Print Shops' }
 const PAGE_SIZE = 20
 
 function buildWhatsAppLink(phone, shopUrl, ownerName, shopName) {
@@ -28,7 +30,8 @@ export default function AdminDirectory() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [shopSearch, setShopSearch] = useState('')
-  const [shopFilter, setShopFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
   const [shopPage, setShopPage] = useState(1)
 
   const fmt = v => formatCurrency(v, 'IN')
@@ -38,7 +41,7 @@ export default function AdminDirectory() {
     else setLoading(true)
 
     const [shopsRes, societiesRes] = await Promise.all([
-      supabase.from('owners').select(`*, societies(name, city, state, slug, postal_code)`).order('created_at', { ascending: false }),
+      supabase.from('owners').select(`*, societies(name, city, state, slug, postal_code), feedback(star_rating)`).order('created_at', { ascending: false }),
       supabase.from('societies').select('*').order('name')
     ])
 
@@ -67,11 +70,19 @@ export default function AdminDirectory() {
     toast.success(`Shop ${status === 'active' ? 'reactivated' : 'deactivated'}`)
   }
 
-  const filtered = shops.filter(s =>
-    (shopFilter === 'all' || s.status === shopFilter) &&
-    (!shopSearch || [s.shop_name, s.name, s.phone, s.societies?.name, s.societies?.city]
-      .some(v => v?.toLowerCase().includes(shopSearch.toLowerCase())))
-  )
+  function getAvgRating(shop) {
+    const fb = shop.feedback || []
+    if (fb.length < 3) return null
+    return fb.reduce((s, f) => s + f.star_rating, 0) / fb.length
+  }
+
+  const filtered = shops.filter(s => {
+    if (statusFilter !== 'all' && s.status !== statusFilter) return false
+    if (typeFilter !== 'all' && (s.provider_type || 'home') !== typeFilter) return false
+    if (shopSearch && ![s.shop_name, s.name, s.phone, s.societies?.name, s.localities, s.societies?.city]
+      .some(v => v?.toLowerCase().includes(shopSearch.toLowerCase()))) return false
+    return true
+  })
   const visible = filtered.slice(0, shopPage * PAGE_SIZE)
   const hasMore = visible.length < filtered.length
 
@@ -136,17 +147,33 @@ export default function AdminDirectory() {
               )}
             </div>
 
+            {/* Status filter */}
             <div className="flex gap-2 flex-wrap">
-              {SHOP_FILTERS.map(f => (
+              {STATUS_FILTERS.map(f => (
                 <button
                   key={f}
-                  onClick={() => { setShopFilter(f); setShopPage(1) }}
-                  className={['px-4 py-1.5 rounded-pill text-sm font-semibold transition-colors min-h-[36px]', shopFilter === f ? 'bg-violet text-white' : 'bg-bg text-muted hover:bg-border'].join(' ')}
+                  onClick={() => { setStatusFilter(f); setShopPage(1) }}
+                  className={['px-4 py-1.5 rounded-pill text-sm font-semibold transition-colors min-h-[36px]', statusFilter === f ? 'bg-violet text-white' : 'bg-bg text-muted hover:bg-border'].join(' ')}
                 >
-                  {SHOP_FILTER_LABELS[f]}
-                  <span className="ml-1.5 opacity-60">
-                    ({shops.filter(s => f === 'all' || s.status === f).length})
-                  </span>
+                  {STATUS_LABELS[f]}
+                  <span className="ml-1.5 opacity-60">({shops.filter(s => f === 'all' || s.status === f).length})</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Provider type filter */}
+            <div className="flex gap-2 flex-wrap">
+              {TYPE_FILTERS.map(f => (
+                <button
+                  key={f}
+                  onClick={() => { setTypeFilter(f); setShopPage(1) }}
+                  className={['px-3 py-1.5 rounded-pill text-sm font-semibold transition-colors min-h-[36px] flex items-center gap-1.5',
+                    typeFilter === f ? 'bg-orange text-white' : 'bg-bg text-muted hover:bg-border'].join(' ')}
+                >
+                  {f === 'home' && <Home size={12} />}
+                  {f === 'shop' && <Store size={12} />}
+                  {TYPE_LABELS[f]}
+                  <span className="opacity-60">({shops.filter(s => f === 'all' || (s.provider_type || 'home') === f).length})</span>
                 </button>
               ))}
             </div>
@@ -161,23 +188,43 @@ export default function AdminDirectory() {
           ) : (
             <div className="space-y-3">
               {visible.map(shop => {
-                const shopUrl = shop.societies?.slug ? `${window.location.origin}/${shop.societies.slug}` : null
+                const isShop   = (shop.provider_type || 'home') === 'shop'
+                const shopSlug = isShop ? shop.slug : shop.societies?.slug
+                const shopUrl  = shopSlug ? `${window.location.origin}/${shopSlug}` : null
+                const location = isShop
+                  ? [shop.locality, shop.shop_address].filter(Boolean).join(' · ')
+                  : [shop.societies?.name, shop.societies?.city].filter(Boolean).join(' · ')
+
+                const avgRating = getAvgRating(shop)
+                const isLowRating = avgRating !== null && avgRating < 3.5
+
                 return (
-                  <div key={shop.id} className="p-4 bg-bg rounded-xl">
+                  <div key={shop.id} className={`p-4 bg-bg rounded-xl border ${isLowRating ? 'border-amber/40' : 'border-transparent'}`}>
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-0.5">
+                      <div className="min-w-0 space-y-0.5 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-ink">{shop.shop_name || shop.name}</p>
                           <Badge status={shop.status} />
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                            isShop ? 'bg-violet/10 text-violet' : 'bg-orange/10 text-orange'
+                          }`}>
+                            {isShop ? <><Store size={10} />Shop</> : <><Home size={10} />Home</>}
+                          </span>
+                          {isLowRating && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber/10 text-amber">
+                              <AlertTriangle size={10} /> {avgRating.toFixed(1)}★
+                            </span>
+                          )}
                         </div>
-                        <p className="text-sm text-muted">{shop.societies?.name}{shop.societies?.city ? ` · ${shop.societies.city}` : ''}</p>
+                        {location && <p className="text-sm text-muted">{location}</p>}
                         <p className="text-xs text-muted">{shop.name} · {shop.phone}</p>
                         {shop.societies?.postal_code && <p className="text-xs text-muted">Pincode: {shop.societies.postal_code}</p>}
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted pt-0.5">
                           <span>B&W {fmt(shop.bw_rate)}/pg</span>
                           <span>Colour {fmt(shop.color_rate)}/pg</span>
-                          <span>Delivery {shop.delivery_fee > 0 ? fmt(shop.delivery_fee) : 'Free'}</span>
+                          {!isShop && <span>Delivery {shop.delivery_fee > 0 ? fmt(shop.delivery_fee) : 'Free'}</span>}
                         </div>
+                        {shopUrl && <p className="font-mono text-xs text-muted break-all">{shopUrl}</p>}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {shop.status === 'active' && shopUrl && (

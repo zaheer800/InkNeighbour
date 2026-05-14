@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Clock, LogOut, MessageCircle, CheckCircle2, ArrowRight, Bell, MailCheck, MailX } from 'lucide-react'
+import { Clock, LogOut, MessageCircle, CheckCircle2, ArrowRight, Bell, MailCheck, MailX, Home, Store } from 'lucide-react'
 import AppNav from '../components/AppNav'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -182,11 +182,11 @@ export default function Admin() {
                 <p className="text-sm text-muted">Now send the shop link to {justApproved.name} via WhatsApp.</p>
               </div>
             </div>
-            {justApproved.phone && justApproved.societies?.slug && (
+            {justApproved.phone && (justApproved.slug || justApproved.societies?.slug) && (
               <a
                 href={buildWhatsAppLink(
                   justApproved.phone,
-                  `${window.location.origin}/${justApproved.societies.slug}`,
+                  `${window.location.origin}/${justApproved.slug || justApproved.societies?.slug}`,
                   justApproved.name,
                   justApproved.shop_name || justApproved.name
                 )}
@@ -243,12 +243,24 @@ export default function Admin() {
             </div>
             <div className="space-y-3">
               {shops.filter(s => s.status === 'pending').map(shop => {
-                const shopUrl = shop.societies?.slug ? `${window.location.origin}/${shop.societies.slug}` : null
+                const isShop   = shop.provider_type === 'shop'
+                const shopSlug = isShop ? shop.slug : shop.societies?.slug
+                const shopUrl  = shopSlug ? `${window.location.origin}/${shopSlug}` : null
+                const location = isShop
+                  ? [shop.locality, shop.shop_address].filter(Boolean).join(' · ')
+                  : [shop.societies?.name, shop.societies?.city].filter(Boolean).join(' · ')
                 return (
                   <div key={shop.id} className="bg-surface rounded-xl p-4 space-y-3">
                     <div className="space-y-1">
-                      <p className="font-bold text-ink">{shop.shop_name || shop.name}</p>
-                      <p className="text-sm text-muted">{shop.societies?.name}{shop.societies?.city ? ` · ${shop.societies.city}` : ''}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-ink">{shop.shop_name || shop.name}</p>
+                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          isShop ? 'bg-violet/10 text-violet' : 'bg-orange/10 text-orange'
+                        }`}>
+                          {isShop ? <><Store size={10} />Print Shop</> : <><Home size={10} />Home Owner</>}
+                        </span>
+                      </div>
+                      {location && <p className="text-sm text-muted">{location}</p>}
                       <p className="text-sm text-ink font-medium">{shop.name} · {shop.phone}</p>
                       {shop.societies?.postal_code && (
                         <p className="text-xs text-muted">Pincode: {shop.societies.postal_code}</p>
@@ -290,6 +302,9 @@ export default function Admin() {
 
                     {shopUrl && (
                       <p className="text-xs text-muted font-mono break-all">{shopUrl}</p>
+                    )}
+                    {isShop && shop.lat && shop.lng && (
+                      <p className="text-xs text-muted">📍 {shop.lat.toFixed(4)}, {shop.lng.toFixed(4)}</p>
                     )}
 
                     {/* Actions */}
