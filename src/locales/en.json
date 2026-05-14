@@ -47,7 +47,13 @@
     "color_rate": "Colour {{rate}}/page",
     "delivery": "Delivery {{fee}}",
     "order_cta": "Order from this shop →",
-    "managed_by": "Managed by {{name}}"
+    "managed_by": "Managed by {{name}}",
+    "badge_home": "Home Owner",
+    "badge_shop": "Print Shop",
+    "open_now": "Open now",
+    "closed_now": "Closed",
+    "free_delivery": "Free delivery",
+    "delivery_from": "Delivery from {{fee}}"
   },
   "register": {
     "title": "Set up your shop",
