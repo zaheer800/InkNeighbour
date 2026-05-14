@@ -204,7 +204,7 @@ export default function Step3Rates() {
         // Home-only
         isNewSociety:       isShop ? false : step2.isNew,
         societyId:          isShop ? null  : (step2.isNew ? null : step2.society?.id),
-        societyName:        isShop ? null  : step2.society?.name,
+        societyName:        isShop ? null  : (step2.isNew ? step2.society?.name : null),
         societyPostalCode:  isShop ? null  : (step2.isNew ? step2.postalCode : null),
         flat_number:        isShop ? null  : (step1.flat_number || null),
         delivery_fee:       isShop ? 0     : Math.round(parseFloat(form.delivery_fee || '0') * 100),

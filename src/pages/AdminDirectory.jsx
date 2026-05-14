@@ -13,7 +13,7 @@ import Footer from '../components/Footer'
 const STATUS_FILTERS = ['all', 'pending', 'active', 'paused', 'inactive']
 const STATUS_LABELS  = { all: 'All', pending: 'Pending', active: 'Active', paused: 'Paused', inactive: 'Inactive' }
 const TYPE_FILTERS   = ['all', 'home', 'shop']
-const TYPE_LABELS    = { all: 'All types', home: 'Home Owners', shop: 'Print Shops' }
+const TYPE_LABELS    = { all: 'Any type', home: 'Home Owners', shop: 'Print Shops' }
 const PAGE_SIZE = 20
 
 function buildWhatsAppLink(phone, shopUrl, ownerName, shopName) {
