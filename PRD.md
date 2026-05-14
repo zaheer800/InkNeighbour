@@ -1,9 +1,9 @@
 # InkNeighbour — Product Requirements Document
-**Version:** 1.8  
+**Version:** 1.9  
 **Owner:** Zaheer (Zakapedia)  
 **URL:** inkneighbour.zakapedia.in  
 **Stack:** React + Vite · Supabase · Vercel  
-**Status:** Phase 1 — Active Development
+**Status:** Phase 1 — Build Ready
 
 ---
 
@@ -11,7 +11,12 @@
 
 ### 1.1 What Is InkNeighbour?
 
-InkNeighbour is a web-based platform that allows home printer owners ("Owners") inside apartment complexes and gated societies to offer on-demand printing services to their neighbours ("Customers"). Customers upload documents, the Owner prints and delivers them within the building, and charges a small per-page fee.
+InkNeighbour is a web-based platform connecting two types of print service providers with customers who need on-demand printing:
+
+- **Home Owners** — apartment residents who own a printer and offer printing to neighbours within their building
+- **Print Shop Owners** — professional print businesses who offer printing with delivery within a configurable radius
+
+Customers upload documents, the provider prints and delivers, and charges a per-page fee. InkNeighbour manages the entire order flow, job queue, payments, feedback, and availability — for both provider types on one unified platform.
 
 ### 1.2 Origin & Core Problem
 
@@ -21,9 +26,9 @@ InkNeighbour connects these two groups inside the same building — turning a ho
 
 ### 1.3 Vision
 
-> "Your printer already exists. Let it pay for its own ink."
+> "Print anything. Delivered to your door."
 
-Long-term vision: A global platform where any home printer owner in any apartment complex, condo, or residential tower can register a print shop, serve their neighbours, and cover their maintenance costs — all without any technical knowledge.
+Long-term vision: A global platform where any home printer owner or professional print shop can register, serve their local community, and earn — without any technical knowledge. Home owners cover their ink costs. Print shops grow their order volume beyond walk-ins.
 
 ### 1.4 Tagline
 
@@ -37,11 +42,12 @@ Long-term vision: A global platform where any home printer owner in any apartmen
 
 | Role | Description |
 |---|---|
-| **Owner** | Home printer owner who registers a shop for their society. Receives jobs, prints, delivers, earns. |
-| **Customer** | Resident of the same society. Uploads documents, places print orders. No account required. |
-| **Platform Admin** | Zaheer (product owner). Manages all shops, default rates, and platform settings. |
+| **Home Owner** | Apartment resident with a home printer. Serves neighbours in the same building. Coverage: same building only. |
+| **Print Shop Owner** | Professional print business. Serves customers within a configurable delivery radius. Coverage: 1–5km. |
+| **Customer** | Anyone needing printing. Finds providers by pincode/map. No account required. |
+| **Platform Admin** | Zaheer (product owner). Manages all providers, default rates, and platform settings. |
 
-### 2.2 Owner Persona
+### 2.2 Home Owner Persona
 
 - Age: 28–55
 - Has a home printer (Canon/HP/Epson inkjet or laser)
@@ -49,8 +55,19 @@ Long-term vision: A global platform where any home printer owner in any apartmen
 - Wants to offset cartridge and maintenance costs
 - Not a business person — needs a simple, no-jargon interface
 - Primarily uses a smartphone
+- Coverage: same apartment building only
 
-### 2.3 Customer Persona
+### 2.3 Print Shop Owner Persona
+
+- Age: 25–50
+- Runs a professional print shop (DTP centre, stationery shop, or print business)
+- Already has walk-in customers but wants more digital orders
+- Needs job management, file tracking, and order flow
+- Has delivery capability (own staff, bike, or third-party)
+- Motivated paying customer — this is their livelihood
+- Coverage: 1–5km delivery radius
+
+### 2.4 Customer Persona
 
 - Age: 18–70 (including elderly residents)
 - Lives in the same apartment complex as the Owner
@@ -164,14 +181,13 @@ Supported paper sizes configurable per region:
 
 ## 4. Core Business Rules
 
-### 4.1 One Owner Per Society
+### 4.1 One Owner Per Society (Home Owners Only)
 
-- Each society can have exactly one active Owner
-- Enforced at two levels:
-  1. **UX level:** Live search with fuzzy matching prevents duplicate registrations
-  2. **Database level:** `UNIQUE` constraint on `society_id` in the `owners` table
-- If a society slot is taken, new registrants are shown: *"This society already has a printer. The owner is [Name]."*
-- If an Owner deactivates their shop, the slot becomes available immediately
+- Each society can have exactly one active **Home Owner**
+- Enforced by `UNIQUE` constraint on `society_id` in the `owners` table — scoped to `provider_type = 'home'`
+- **Print Shop Owners are NOT subject to this rule** — multiple print shops can serve the same area
+- If a Home Owner's slot is taken, new registrants see: *"This society already has a printer owner."*
+- If a Home Owner deactivates, the slot opens immediately
 
 ### 4.2 Society Matching (Duplicate Prevention)
 
@@ -183,39 +199,81 @@ To prevent the same society being registered under different spellings:
 4. If similarity score > 75%, system warns: *"Did you mean [existing name]?"*
 5. Owner confirms or overrides
 
-### 4.3 Pricing
+### 4.3 Service Menu (Print Shops — Display Only)
 
-- Platform sets global default rates (editable by Admin)
-- Owner can customise rates within ±50% of platform defaults (configurable range)
-- Rates stored per-shop:
-  - `bw_per_page` — B&W print per page
-  - `color_per_page` — Colour print per page
-  - `delivery_fee` — Optional flat delivery fee (Owner can set to 0)
-- All rates in smallest currency unit
+Print shops have a **profile page** that displays all their services. This is for information only — InkNeighbour manages only print jobs. All other services are advertised on the profile but handled offline (walk-in, call, or WhatsApp).
+
+**Service display on print shop profile:**
+
+| Service | Displayed on profile? | Online ordering via InkNeighbour? |
+|---|---|---|
+| B&W Printing | ✅ Yes | ✅ Yes — full order flow |
+| Colour Printing | ✅ Yes | ✅ Yes — full order flow |
+| Scanning | ✅ Yes (display only) | ❌ No — walk-in / call |
+| Photocopying | ✅ Yes (display only) | ❌ No — walk-in / call |
+| Binding | ✅ Yes (display only) | ❌ No — walk-in / call |
+| Lamination | ✅ Yes (display only) | ❌ No — walk-in / call |
+| Passport Photo | ✅ Yes (display only) | ❌ No — walk-in / call |
+
+**Home Owners:** No service menu. Print only (B&W + Colour). Profile is simple.
+
+**Service menu stored as display text** — owner types their own price description:
+```
+Scanning:     "₹10/page"
+Binding:      "From ₹20"
+Lamination:   "₹15/item"
+Passport:     "Call for price"
+```
+
+No pricing model complexity. No per-unit calculation. Just free-text display.
+
+For non-print services, the shop profile shows three contact buttons:
+- 📞 Call
+- 💬 WhatsApp
+- 📍 Directions (Google Maps deep link)
+
+---
+
+### 4.4 Pricing
+
+- Platform sets global default rates per provider type (editable by Admin)
+- Each provider sets their own B&W and Colour rates during setup
+- All rates stored in smallest currency unit (paise for INR)
+- Delivery fee: flat fee set by provider (Home Owner or Print Shop)
 
 **Phase 1 India defaults:**
-- B&W: ₹2/page
-- Colour: ₹5/page
-- Delivery: ₹8 (Owner's choice)
 
-### 4.4 Price Calculation
+| Rate | Home Owner | Print Shop |
+|---|---|---|
+| B&W per page | ₹2 | ₹3 |
+| Colour per page | ₹5 | ₹8 |
+| Delivery fee | ₹8 flat | ₹8 flat (configurable) |
+
+---
+
+### 4.5 Price Calculation
+
+Simple. Print only.
 
 ```
 Total = (pages × copies × rate_per_page) + delivery_fee
 ```
 
-Where `rate_per_page` = `bw_per_page` if B&W, `color_per_page` if Colour.
+Where `rate_per_page` = `bw_rate` if B&W, `color_rate` if Colour.
 
-Price shown to Customer before they confirm order. No hidden fees.
+Price shown to Customer before confirming. No hidden fees.
 
-### 4.5 File Management
+---
+
+### 4.6 File Management
 
 - Files stored in Supabase Storage under `jobs/{job_id}/{filename}`
 - Auto-deleted when job status → `delivered` **or** `cancelled`
 - Purpose: keep storage within Supabase free tier at all times
-- Owner downloads file before marking as "Printing"
+- Owner downloads file before printing
 - File size limit: 10MB per upload
 - Accepted formats: PDF, JPG, JPEG, PNG
+- File upload always required — print jobs always need a document
 
 ### 4.6 Job Lifecycle
 
@@ -453,7 +511,11 @@ Stored on `owners` row. Recalculated on every job status change.
 
 ### 5.9 Active Job Limit
 
-Maximum concurrent active jobs: **2** (configurable per owner, platform default in `platform_config`).
+Maximum concurrent active jobs is **owner-configurable** — set during shop setup and editable in settings.
+
+**Platform defaults:**
+- Home Owner: 3 active jobs
+- Print Shop: 10 active jobs
 
 Active jobs = jobs with status `submitted`, `accepted`, or `printing`.
 
@@ -580,8 +642,6 @@ $$ LANGUAGE plpgsql;
 | 13 | Order Confirmation | `/:society-slug/confirm/:job-id` | Public |
 | 14 | Customer Feedback Form | `/feedback/:job-id` | Public (time-limited) |
 | 15 | Platform Admin | `/admin` | Admin only |
-| 16 | Admin — Shops & Societies Directory | `/admin/directory` | Admin only |
-| 17 | Admin — Jobs Detail View | `/admin/jobs` | Admin only |
 
 ---
 
@@ -605,96 +665,122 @@ $$ LANGUAGE plpgsql;
 
 ---
 
-### 5.3 Screen 2 — Society Search Results (`/find`)
+### 5.3 Screen 2 — Search Results (`/find`)
 
-**Purpose:** Show available print shops near the customer's postal code.
+**Purpose:** Show available providers near the customer. Both Home Owners and Print Shops displayed.
 
-**Inputs:** Postal code (from landing page)
+**View toggle:** List view ↔ Map view (persistent preference stored in localStorage)
 
-**Display per result:**
-- Society name
-- City / Area
-- Owner first name only (privacy)
+**List View:**
+- Home Owners and Print Shops shown in same list
+- Provider type badge on each card: `🏠 Home` or `🏪 Shop`
+- Sorted by distance (Phase 2) or relevance (Phase 1)
+
+**Map View:**
+- Map centred on customer's pincode (Leaflet+OSM Phase 1, Mappls Phase 2)
+- Home Owner markers: 🏠
+- Print Shop markers: 🏪 with delivery radius circle overlay
+- Tap marker → mini card with name, rates, status, "Order" CTA
+
+**Display per result (both types):**
+- Provider name + type badge
+- City / Area + first name only (privacy)
 - Rates: B&W and Colour per page
-- Star rating: ⭐ 4.8 · 24 ratings (hidden if fewer than 3 ratings received)
-- Status badge: `Open` (green) / `Inactive` (grey)
+- Star rating: ⭐ 4.8 · 24 ratings (hidden if < 3 ratings)
+- Status badge: `Open` / `Busy` / `Closed`
+- Print Shops only: "Delivers within [X]km"
 - CTA: "Order from this shop →"
 
-**Empty state:** "No printer found in your area yet. Know someone with a printer? Tell them about InkNeighbour!"
+**Filter bar:**
+- All / Home Owners only / Print Shops only
+- Open now toggle
 
-**Edge cases:**
-- Multiple results: list all, sorted by distance (Phase 2) or alphabetically (Phase 1)
-- All inactive: show message + Register CTA
+**Empty state:** "No printer found in your area yet. Know someone with a printer? Tell them about InkNeighbour!"
 
 ---
 
 ### 5.4 Screens 3–5 — Owner Registration (3 Steps)
 
-**Step 1 — Your Details**
+**Step 1 — Provider Type + Your Details**
+
+Provider type selector shown first (large, visual):
+```
+Are you a...
+🏠 Home Printer Owner     🏪 Print Shop Owner
+   I print for my            I run a print
+   neighbours                business
+```
+
+Common fields (both types):
 - Full name
 - Phone number
 - Email address (for login)
 - Password
-- Flat / unit number
 - Country selector (defaults to India)
 
-**Step 2 — Your Society**
-- Postal code input → triggers society search
-- Dropdown of known societies in that postal code
-- Each item shows: Society name, status (Available / Taken)
-- "Add my society" option at bottom of dropdown
-- On manual entry: Fuse.js fuzzy match warning if similar name exists
-- Confirm society selection
+Home Owner only:
+- Flat / unit number
+
+Print Shop only:
+- Shop name
+- Shop address (street, area, city)
+- GST number (optional)
+
+**Step 2 — Location**
+
+Home Owner:
+- Postal code input → society search dropdown
+- Fuzzy match duplicate detection
+- "Add my society" option
+- Optional: map pin ([ 📍 Use my location ] or drag pin on map)
+- Privacy note: *"We recommend pinning your building entrance — not your exact flat"*
+
+Print Shop:
+- Locality / area name (e.g. "Tarnaka") — fuzzy searchable
+- Landmark (optional, e.g. "Near Metro Station")
+- Map pin — required:
+  - [ 📍 Use my current location ] → browser geolocation
+  - Or: type address → Nominatim geocoding → pin drops on map
+  - Owner drags pin to adjust if needed
 
 **Step 3 — Rates & Payment**
-- Pre-filled platform default rates (editable): B&W ₹2/page, Colour ₹5/page, Delivery ₹8
-- Shop name (pre-filled from society name, editable)
-- UPI ID field (optional)
-- Cash on Delivery toggle (on by default)
-- Submit: "Launch My Shop 🚀"
-- **On submit — two paths depending on Supabase email confirmation setting:**
 
-  **Path A (email confirmation enabled — recommended for production):**
-  1. `supabase.auth.signUp()` called first → no session returned
-  2. All DB writes deferred: payload written to `localStorage.reg_pending`
-  3. Redirect to `/register/success` showing "Check your email" screen
-  4. After user clicks email link → lands on `/dashboard`
-  5. Dashboard detects `reg_pending` → creates society (if new) + owner row → clears `reg_pending`
+Common fields:
+- B&W per page (pre-filled with provider-type default)
+- Colour per page (pre-filled with provider-type default)
+- UPI ID
+- Cash on Delivery toggle
+- Active job limit (configurable, pre-filled with provider-type default)
 
-  **Path B (email confirmation disabled — development/testing):**
-  1. `supabase.auth.signUp()` called → session returned immediately
-  2. Society created (if new), owner row inserted with `status = 'pending'`
-  3. Redirect to `/register/success` showing "Shop submitted!" screen
+Home Owner only:
+- Flat delivery fee (can be set to 0)
 
-  In both paths, the owner's `status = 'pending'` — shop is NOT live until admin approves.
+Print Shop only:
+- Distance-based delivery fee tiers (0–1km, 1–2km, 2–3km — pre-filled, editable)
+- Paper sizes available (A4 default, enable A3/Legal optionally)
+- Operating hours (Mon–Sun, open/close time per day)
+
+Submit: "Launch My Shop 🚀"
 
 **Validation:**
-- Phone: format validation per country (India: must start with 6–9)
-- Email: standard format validation
+- Phone: format validation per country
+- Email: standard validation
 - Rates: must be > 0 for B&W and Colour
-- Society: must be selected or confirmed
+- Home Owner: society must be selected or confirmed
+- Print Shop: address must be entered, delivery radius must be set
 
 ---
 
-### 5.5 Screen 6 — Registration Submitted Confirmation
+### 5.5 Screen 6 — Shop Live Confirmation
 
-**Purpose:** Acknowledge the Owner's registration and set expectations.
+**Purpose:** Celebrate the Owner's shop going live. Give them their share link.
 
-**State A — Email verification required (`pendingEmail` present in session):**
-- Mail icon (violet)
-- "Check your email" heading
-- "We sent a confirmation link to [email]. Click the link to verify your account."
-- What happens next: email confirm → review → WhatsApp link → go live
-- "Didn't receive it? Check your spam, or start again" link
-
-**State B — Shop submitted (no email verification needed):**
-- Checkmark icon (green)
-- "Shop submitted!" heading
-- "Your shop is under review. Once approved, we'll send your shop link to your WhatsApp."
-- While you wait: checklist (enable notifications, load printer, etc.)
-- "Go to Dashboard →" button
-
-**Note:** The shop is NOT live at this point. Admin must approve before the shop accepts orders.
+**Content:**
+- Large success animation (confetti or checkmark)
+- "Your shop is live! 🎉"
+- Shop URL displayed prominently (copy button)
+- WhatsApp share button: pre-filled message *"I've set up a print shop for [Society Name]! Send me your documents here: [URL]"*
+- "Go to your dashboard →"
 
 ---
 
@@ -729,17 +815,6 @@ $$ LANGUAGE plpgsql;
 - `delivered` → [View Details]
 
 **Empty state:** "No pending jobs. Share your shop link to get started! 📋"
-
-**Auto-refresh (polling):**
-- While the shop is live (`status = active`), the dashboard polls Supabase every 30 seconds and refreshes the job list automatically.
-- No manual refresh needed for active owners.
-
-**New-order notification sound:**
-- When a new `submitted` job appears in the list (detected on any refresh — polling or manual), the dashboard plays a short two-tone rising chime using the Web Audio API.
-- The sound is generated programmatically — no audio file required.
-- Implemented in `/src/lib/sound.js` (`playNotificationSound()`).
-- AudioContext is unlocked on the owner's first tap of the "Go live" toggle or the "Enable notifications" bell — both are natural first interactions on dashboard load.
-- Sound plays silently on unsupported browsers; no error is shown.
 
 ---
 
@@ -776,54 +851,74 @@ $$ LANGUAGE plpgsql;
 ### 5.8 Screen 10 — Owner Dashboard — Settings (`/dashboard/settings`)
 
 **Sections:**
-- **Shop Info:** Name, society, status (Live / Paused)
-- **Rates:** Edit B&W, Colour, Delivery fee
+- **Shop Info:** Name, society/address, status (Live / Paused), locality (Print Shops), map pin adjustment
+- **Print Rates:** Edit B&W rate, Colour rate, Delivery fee
+- **Services (Print Shops only):** Toggle each non-print service on/off. Enter display price as free text per service (e.g. "₹10/page", "From ₹20", "Call for price")
+- **Contact (Print Shops only):** Phone number shown on profile, WhatsApp number
 - **Payment:** UPI ID, Cash on Delivery toggle
+- **Active Job Limit:** Configurable (default 3 for home, 10 for shop)
 - **Account:** Name, phone, email, password change
 - **Danger Zone:** Deactivate shop (with confirmation dialog)
 
 ---
 
-### 5.11 Screen 12 — Society Shop Page (`/:society-slug`)
+### 5.11 Screen 12 — Provider Shop Page (`/:society-slug`)
 
-**Purpose:** The Customer-facing order page. Accessible via Owner's shared link or search results.
+**Purpose:** Customer-facing page. Two layouts depending on provider type.
 
-**Header:**
-- Shop name: "[Society Name] Print Shop"
-- Owner first name: "Managed by [Name]"
-- Rates displayed clearly: B&W ₹X/page · Colour ₹X/page · Delivery ₹X
-- Star rating: ⭐ 4.8 · 24 ratings (shown only if ≥ 3 ratings exist)
-- Open/Closed status
+---
 
-**Order Form:**
+**Home Owner Layout (simple):**
+- Shop name + 🏠 badge
+- "Managed by [Name]"
+- B&W ₹X/page · Colour ₹X/page · Delivery ₹X
+- Star rating (if ≥ 3 ratings)
+- Open/Closed status + map pin (optional)
+- Order form (steps 1–4 as before)
 
-*Step 1 — Your Details*
-- Name (large input)
-- Flat / Unit number (large input)
-- Phone number (for updates)
+---
 
-*Step 2 — Upload Document*
-- Large upload zone with icon
-- Tap to upload or drag and drop
-- Accepted: PDF, JPG, PNG · Max 10MB
-- After upload: show filename + auto-detected page count
-- If page count cannot be detected: prompt Owner to enter manually (Owner sees this in dashboard)
+**Print Shop Layout (rich profile):**
 
-*Step 3 — Print Options*
-- B&W or Colour (large toggle buttons with icons)
-- Paper size: A4 / Letter (show only relevant sizes per country)
-- Number of copies (+ / − large buttons)
+*Header:*
+- Shop name + 🏪 badge
+- Locality + landmark (e.g. "Tarnaka · Near Metro Station")
+- Star rating · Open/Closed status
+- Map pin (static Leaflet map, non-interactive)
 
-*Step 4 — Price & Payment*
-- Price breakdown (clear, line-by-line)
-- Payment method selection: UPI (scan QR) / Cash on Delivery
-- Large "Place Order" button with total amount
+*Services section:*
+```
+ONLINE ORDER
+🖨️ B&W Printing     ₹3/page   [ Order Online → ]
+🖨️ Colour Printing  ₹8/page   [ Order Online → ]
+
+OTHER SERVICES
+📠 Scanning          ₹10/page
+📋 Photocopying      ₹1.50/page
+📎 Binding           From ₹20
+🗂️ Lamination        ₹15/item
+📸 Passport Photo    ₹40/set
+```
+
+*Contact bar (for walk-in services):*
+```
+[ 📞 Call ]  [ 💬 WhatsApp ]  [ 📍 Directions ]
+```
+
+Contact buttons use deep links — no backend:
+```javascript
+Call:       window.location.href = `tel:${shop.phone}`
+WhatsApp:   window.open(`https://wa.me/${shop.phone}?text=Hi, I need a service`)
+Directions: window.open(`https://maps.google.com/?q=${shop.lat},${shop.lng}`)
+```
+
+*Order form:* Same 4-step wizard as Home Owner — triggered by "Order Online" button.
 
 **Design Notes:**
-- One step visible at a time on mobile (wizard pattern)
-- Progress bar showing steps (1 of 4, 2 of 4...)
-- Back button on every step
-- No login required for Customer
+- Only enabled services shown (is_enabled = true in service_menu)
+- If no non-print services enabled, "Other Services" section hidden
+- Map pin only shown if lat/lng is set
+- Contact bar always visible for print shops
 
 ---
 
@@ -922,31 +1017,15 @@ Anything to add? (optional)
 
 **Sections:**
 
-*Overview Stats (clickable)*
-Each stat card is a clickable button with hover/active feedback. Tapping a card opens a detailed view:
-
-| Stat | Links to | Detail view |
-|---|---|---|
-| Total registered societies | `/admin/directory` | Full societies + shops list |
-| Total active shops | `/admin/directory` | Full shops list |
-| Jobs today | `/admin/jobs?period=today` | All jobs created today |
-| GMV this month | `/admin/jobs?period=month` | All delivered jobs this month |
-
-*Admin Jobs detail page (`/admin/jobs`):*
-- Accessible from stat cards only (admin-protected route)
-- Two modes via `?period=` query param: `today` (all statuses) or `month` (delivered only)
-- Summary card showing count and total value at the top
-- Job list showing: job number, status badge, shop name, society, customer name + flat, print type, page count × copies, amount, timestamp
-
-*Pending Approvals* (shown prominently at top when any exist)
-- Badge count of pending shops
-- Each card shows: Shop name, Owner name, Phone, Society, Registration date
-- Actions: **Approve** (sets `status → active`) · **Reject** (sets `status → inactive`)
-- Approving makes the shop immediately live; rejecting blocks it without deleting data
+*Overview Stats*
+- Total registered societies
+- Total jobs today / this month
+- Total GMV (gross merchandise value)
+- Platform commission (when enabled)
 
 *Shop Management*
-- List all approved/active/paused/inactive shops: Owner name, society, city, status
-- Actions: Deactivate, Reactivate
+- List all shops: Owner name, society, city, status, jobs this month
+- Actions: View details, Deactivate, Reactivate
 
 *Society Registry*
 - All societies registered on platform
@@ -992,28 +1071,46 @@ owners (
   user_id       UUID REFERENCES auth.users(id),
   name          TEXT NOT NULL,
   phone         TEXT,
-  flat_number   TEXT,
-  society_id    UUID UNIQUE REFERENCES societies(id),  -- UNIQUE enforces 1 owner/society
+  flat_number   TEXT,                                -- Home Owner only
+  society_id    UUID REFERENCES societies(id),       -- Home Owner only (UNIQUE scoped to 'home')
   shop_name     TEXT,
-  status        TEXT DEFAULT 'pending',                -- 'pending', 'active', 'paused', 'inactive'
-  bw_rate       INTEGER NOT NULL DEFAULT 200,          -- paise (₹2.00)
-  color_rate    INTEGER NOT NULL DEFAULT 500,          -- paise (₹5.00)
-  delivery_fee  INTEGER DEFAULT 800,                   -- paise (₹8.00)
+  provider_type TEXT DEFAULT 'home',                 -- 'home' | 'shop'
+  -- Print Shop fields (NULL for home owners)
+  shop_address  TEXT,
+  locality      TEXT,                                -- e.g. 'Tarnaka', 'Malkajgiri'
+  landmark      TEXT,                                -- e.g. 'Near Metro Station' (display only)
+  lat           NUMERIC(10,7),                       -- for map pin (both types, optional for home)
+  lng           NUMERIC(10,7),
+  delivery_radius INTEGER,                           -- metres (Phase 2)
+  delivery_by   TEXT,                                -- 'self' | 'staff' | 'thirdparty'
+  gst_number    TEXT,                                -- optional
+  status        TEXT DEFAULT 'active',               -- 'active', 'paused', 'inactive'
+  bw_rate       INTEGER NOT NULL DEFAULT 200,        -- paise (₹2.00 home / ₹3.00 shop)
+  color_rate    INTEGER NOT NULL DEFAULT 500,        -- paise (₹5.00 home / ₹8.00 shop)
+  delivery_fee  INTEGER DEFAULT 800,                 -- flat fee for home owners (paise)
   upi_id        TEXT,
   accept_cash   BOOLEAN DEFAULT true,
   country_code  TEXT REFERENCES countries(code) DEFAULT 'IN',
   -- Availability System fields
-  manual_state          TEXT DEFAULT 'OFF',            -- 'ON' | 'OFF'
-  system_override       TEXT DEFAULT 'NONE',           -- 'NONE' | 'FORCED_OFF'
-  override_expires_at   TIMESTAMPTZ,                   -- when FORCED_OFF cooldown ends
-  active_job_count      INTEGER DEFAULT 0,             -- current active jobs (max 2-3)
-  max_active_jobs       INTEGER DEFAULT 2,             -- configurable per owner
-  reliability_score     NUMERIC(5,2) DEFAULT 100.00,   -- 0.00–100.00
+  manual_state          TEXT DEFAULT 'OFF',          -- 'ON' | 'OFF'
+  system_override       TEXT DEFAULT 'NONE',         -- 'NONE' | 'FORCED_OFF'
+  override_expires_at   TIMESTAMPTZ,
+  active_job_count      INTEGER DEFAULT 0,
+  max_active_jobs       INTEGER DEFAULT 3,           -- 3 for home, 10 for shop (owner sets)
+  reliability_score     NUMERIC(5,2) DEFAULT 100.00,
   total_jobs_received   INTEGER DEFAULT 0,
   total_jobs_accepted   INTEGER DEFAULT 0,
   total_jobs_delivered  INTEGER DEFAULT 0,
-  last_toggle_at        TIMESTAMPTZ,                   -- enforce 30s minimum between toggles
+  last_toggle_at        TIMESTAMPTZ,
   created_at    TIMESTAMPTZ DEFAULT now()
+)
+
+-- Delivery Fee Tiers (Print Shops only — distance-based)
+delivery_fee_tiers (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id    UUID REFERENCES owners(id) ON DELETE CASCADE,
+  max_km      NUMERIC(4,1) NOT NULL,                 -- e.g. 1.0, 2.0, 3.0
+  fee         INTEGER NOT NULL                       -- paise
 )
 
 -- Availability Schedules
@@ -1036,32 +1133,43 @@ missed_jobs (
   reason        TEXT                                   -- 'sla_expired' | 'manual_cancel'
 )
 
+-- Service Menu (Print Shops only — display only, not used in job logic)
+service_menu (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id      UUID REFERENCES owners(id) ON DELETE CASCADE,
+  service_code  TEXT NOT NULL,      -- 'scan' | 'photocopy' | 'binding' | 'lamination' | 'passport_photo'
+  is_enabled    BOOLEAN DEFAULT false,
+  display_price TEXT,               -- free text e.g. "₹10/page" | "From ₹20" | "Call for price"
+  UNIQUE (owner_id, service_code)
+)
+
 -- Jobs
 jobs (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_number    TEXT UNIQUE NOT NULL,      -- 'INK-0042'
-  owner_id      UUID REFERENCES owners(id),
-  society_id    UUID REFERENCES societies(id),
-  customer_name TEXT NOT NULL,
-  customer_flat TEXT NOT NULL,
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_number     TEXT UNIQUE NOT NULL,    -- 'INK-0042'
+  owner_id       UUID REFERENCES owners(id),
+  society_id     UUID REFERENCES societies(id),
+  customer_name  TEXT NOT NULL,
+  customer_flat  TEXT NOT NULL,
   customer_phone TEXT,
-  file_path     TEXT,                      -- Supabase storage path
-  file_name     TEXT,
-  page_count    INTEGER,
-  print_type    TEXT NOT NULL,             -- 'bw', 'color'
-  paper_size    TEXT DEFAULT 'A4',         -- 'A4', 'Letter', 'Legal', 'A3'
-  copies        INTEGER DEFAULT 1,
-  total_amount  INTEGER NOT NULL,          -- smallest currency unit
-  payment_method TEXT NOT NULL,            -- 'upi', 'cash'
-  payment_status TEXT DEFAULT 'pending',   -- 'pending', 'paid'
-  status        TEXT DEFAULT 'submitted',  -- 'submitted','accepted','printing','delivered','cancelled'
+  file_path      TEXT,                    -- Supabase storage path
+  file_name      TEXT,
+  page_count     INTEGER,
+  print_type     TEXT NOT NULL,           -- 'bw' | 'color'
+  paper_size     TEXT DEFAULT 'A4',       -- 'A4' | 'Letter' | 'Legal' | 'A3'
+  copies         INTEGER DEFAULT 1,
+  total_amount   INTEGER NOT NULL,        -- paise
+  delivery_fee   INTEGER DEFAULT 0,       -- paise
+  payment_method TEXT NOT NULL,           -- 'upi' | 'cash'
+  payment_status TEXT DEFAULT 'pending',  -- 'pending' | 'paid'
+  status         TEXT DEFAULT 'submitted',
   -- SLA fields
-  sla_deadline  TIMESTAMPTZ,              -- created_at + 15 minutes
-  sla_breached  BOOLEAN DEFAULT false,
-  locked_effective_state TEXT,            -- effective_state at job creation time
-  notes         TEXT,
-  created_at    TIMESTAMPTZ DEFAULT now(),
-  updated_at    TIMESTAMPTZ DEFAULT now()
+  sla_deadline            TIMESTAMPTZ,
+  sla_breached            BOOLEAN DEFAULT false,
+  locked_effective_state  TEXT,
+  notes          TEXT,
+  created_at     TIMESTAMPTZ DEFAULT now(),
+  updated_at     TIMESTAMPTZ DEFAULT now()
 )
 
 -- Feedback
@@ -1093,13 +1201,17 @@ platform_config (
   value         TEXT,
   updated_at    TIMESTAMPTZ DEFAULT now()
 )
--- Rows: 'default_bw_rate', 'default_color_rate', 'default_delivery_fee',
+-- Rows: 'default_bw_rate_home', 'default_color_rate_home', 'default_delivery_fee_home',
+--       'default_bw_rate_shop', 'default_color_rate_shop',
+--       'default_scan_rate_home', 'default_scan_rate_shop',
+--       'default_photocopy_rate_home', 'default_photocopy_rate_shop',
+--       'default_binding_rate_home', 'default_binding_rate_shop',
+--       'default_lamination_rate_home', 'default_lamination_rate_shop',
+--       'default_passport_photo_rate_home', 'default_passport_photo_rate_shop',
+--       'default_delivery_radius_shop', 'default_max_jobs_home', 'default_max_jobs_shop',
 --       'commission_percent', 'subscription_fee', 'subscription_active',
---       'sla_acceptance_minutes' (default: 15),
---       'override_cooldown_minutes' (default: 120),
---       'override_missed_job_threshold' (default: 2),
---       'reliability_override_threshold' (default: 70),
---       'max_active_jobs_default' (default: 2)
+--       'sla_acceptance_minutes', 'override_cooldown_minutes',
+--       'override_missed_job_threshold', 'reliability_override_threshold'
 ```
 
 ### 6.2 Row Level Security (RLS)
@@ -1108,6 +1220,8 @@ platform_config (
 owners: Owner can read/update own row only
 jobs: Owner can read/update jobs where owner_id = auth.uid()
 jobs: INSERT allowed for anonymous (customers place orders without login)
+service_menu: Owner can full CRUD own service menu (print shops only)
+service_menu: Public read — customers see services on shop profile
 feedback: INSERT allowed for anonymous (customers submit without login)
 feedback: Owner can read feedback where owner_id = auth.uid()
 feedback: No updates or deletes allowed after submission
@@ -1115,8 +1229,17 @@ push_subscriptions: Owner can INSERT / DELETE own subscriptions only
 push_subscriptions: No public read — Edge Function uses service role key
 availability_schedules: Owner can full CRUD own schedules only
 missed_jobs: Owner can read own missed jobs — INSERT via service role only
+delivery_fee_tiers: Owner can full CRUD own tiers — public read for customers
 societies: Public read, authenticated write only
 platform_config: Admin only (via service role key)
+```
+
+**UNIQUE constraint for Home Owners:**
+```sql
+-- Only one home owner per society (print shops exempt)
+CREATE UNIQUE INDEX unique_home_owner_per_society
+  ON owners (society_id)
+  WHERE provider_type = 'home' AND status != 'inactive';
 ```
 
 **Computed fields on `owners` (derived from `feedback` table):**
@@ -1188,6 +1311,7 @@ export const deleteJobFile = async (jobId) => {
 | sonner | Toast notifications |
 | vite-plugin-pwa | PWA manifest + service worker generation |
 | web-push | VAPID push notification sending (used in Supabase Edge Function) |
+| leaflet + react-leaflet | Map display for print shop search (Phase 1) |
 
 ### 7.2 Backend
 
@@ -1397,28 +1521,26 @@ Active indicator: small violet dot below icon
 
 ```
 /                          Landing page
-/find                      Society search results
-/register                  Owner registration step 1
-/register/society          Owner registration step 2
-/register/rates            Owner registration step 3
+/find                      Search results (list + map toggle)
+/register                  Registration step 1 (provider type selector)
+/register/location         Registration step 2 (society or address)
+/register/rates            Registration step 3 (rates + payment)
 /register/success          Shop live confirmation
 /login                     Owner login
 /dashboard                 Owner dashboard (jobs) [protected]
 /dashboard/earnings        Owner earnings [protected]
 /dashboard/settings        Owner settings [protected]
 /dashboard/feedback        Owner feedback [protected]
-/dashboard/availability    Owner availability schedule [protected]
+/dashboard/availability    Owner schedule [protected]
 /admin                     Platform admin [admin only]
-/admin/directory           Shops & societies directory [admin only]
-/admin/jobs                Jobs detail view (today / monthly GMV) [admin only]
-/:slug                     Society shop page (dynamic)
+/:slug                     Provider shop page (dynamic — both types)
 /:slug/confirm/:jobId      Order confirmation (dynamic)
-/feedback/:jobId           Customer feedback form (dynamic, 7-day expiry)
+/feedback/:jobId           Customer feedback form (time-limited)
 ```
 
 Route protection:
 - `/dashboard/*` → requires Supabase auth session
-- `/admin/*` → requires Supabase auth session + admin email match
+- `/admin` → requires admin email match
 - All other routes → public
 
 ---
@@ -1429,40 +1551,21 @@ Route protection:
 
 ```
 1. Landing page → "Register Your Printer"
-2. Step 1 (/register): Fill name, phone, email, password, country
-   → Saved to sessionStorage.reg_step1 on Next
-3. Step 2 (/register/society): Enter postal code → search societies
-   a. Select existing society (available slot only) OR
-   b. Type new name → Fuse.js fuzzy match warning → confirm
-   → Saved to sessionStorage.reg_step2 on select
-4. Step 3 (/register/rates): Adjust shop name, rates, UPI ID, cash toggle
-
-5a. EMAIL CONFIRMATION ENABLED (production default):
-   → supabase.auth.signUp() → no session returned
-   → ownerPayload saved to localStorage.reg_pending
-     { isNewSociety, societyId|societyName|societyPostalCode,
-       name, phone, bw_rate, color_rate, delivery_fee, ... }
-   → sessionStorage.reg_success set with { pendingEmail, ownerName }
-   → Redirect to /register/success (Check your email screen)
-   → User clicks email link → lands on /dashboard
-   → Dashboard reads reg_pending → creates society (if isNewSociety) + owner row
-   → Clears reg_pending → reloads → owner status = 'pending'
-
-5b. EMAIL CONFIRMATION DISABLED (dev/testing):
-   → supabase.auth.signUp() → session returned immediately
-   → Society INSERT (if new society)
-   → Owner INSERT with status = 'pending'
-   → sessionStorage.reg_success set with { ownerName }
-   → Redirect to /register/success (Shop submitted screen)
-
-6. Admin sees shop in /admin and /admin/directory (Pending tab)
-7. Admin clicks Approve → owner status = 'active'
-8. Owner notified via WhatsApp → owner goes live from dashboard
+2. Step 1: Select provider type (🏠 Home / 🏪 Shop)
+           Fill name, phone, email, password, country
+           Home Owner: add flat number
+           Print Shop: add shop name, address, optional GST
+3. Step 2: Location
+           Home Owner: enter postal code → select/add society → fuzzy match check
+           Print Shop: enter full address → set delivery radius → select delivery method
+4. Step 3: Rates, payment, active job limit
+           Home Owner: flat delivery fee, rates, UPI, cash toggle
+           Print Shop: distance-based fee tiers, rates, UPI, cash toggle, operating hours
+5. Submit → Supabase creates: auth user + owner row + society row (home) / delivery_fee_tiers (shop)
+6. Redirect to /register/success with share link
+7. WhatsApp share button pre-populated
+8. "Go to Dashboard →"
 ```
-
-**Guard against duplicate takeover:** `owners.society_id` has a DB-level UNIQUE constraint. INSERT fails with PostgreSQL error code `23505` → friendly message: "This society already has a registered printer owner."
-
-Society availability is shown correctly via the `get_societies_with_availability` SECURITY DEFINER RPC function (migration 012). Taken societies display as "Taken" with the owner's name during Step 2.
 
 ### 10.2 Customer Order Flow
 
@@ -1509,12 +1612,8 @@ No API required. Uses `wa.me` pre-filled links opened by the user. Owner taps to
 
 | Event | Who notified | Method |
 |---|---|---|
-| New job placed | Owner | Browser push notification (if permission granted) |
-| New job placed | Owner | In-app chime sound (Web Audio API, while dashboard is open) |
+| New job placed | Owner | Browser notification (if permission granted) |
 | New feedback received | Owner | Badge on Feedback tab in dashboard |
-
-**In-app sound alert:**
-While the owner's dashboard is open and the shop is live, a 30-second polling loop checks for new submitted jobs. When a new job ID appears that was not in the previous fetch, a two-tone rising chime plays immediately in the browser — no server-push or permission needed. This mirrors the Uber/Rapido driver alert pattern. Implemented in `/src/lib/sound.js`.
 
 **WhatsApp `wa.me` touchpoints (4 in Phase 1):**
 
@@ -1863,55 +1962,59 @@ Sitemap auto-generated from active society slugs.
 
 | Scenario | Behaviour |
 |---|---|
-| Society already registered (DB 23505) | Toast: "This society already has a registered printer owner. Please select a different society or contact support." |
-| User already has a shop (DB 23505 on user_id) | Toast: "You already have a shop registered. Please log in to manage it." |
-| Email already in use (signUp error) | Toast shows Supabase error message verbatim |
-| Email confirmation required (no session) | All DB writes deferred to `localStorage.reg_pending`, redirect to Check your email screen |
-| reg_pending present, no owner row in dashboard | Shows "Shop setup incomplete" screen with step-by-step fix instructions |
+| Society already registered | Clear message + show existing owner's first name |
 | File upload fails | Friendly retry message |
 | File too large (>10MB) | "Your file is too large. Please compress it and try again." |
-| Page count detection fails | "We couldn't detect the page count. The owner will confirm before printing." |
+| Page count detection fails | Show "We couldn't detect the page count. The owner will confirm before printing." |
 | Shop is paused | Customer sees: "This shop is temporarily closed. Try again later." |
 | Network error | Toast with retry option |
 | Invalid slug | 404 page with link back to home |
-| Feedback URL expired | "This feedback link has expired. Thank you for your feedback!" |
-| Unauthorized dashboard access | Redirect to `/login` |
 
 ---
 
 ## 14. Phase Roadmap
 
 ### Phase 1 — MVP (Build Now)
-- [x] Landing page with pincode search
-- [x] Owner registration (3 steps) — with email confirmation deferral pattern
-- [x] Society creation with fuzzy match (Fuse.js)
-- [x] Owner dashboard (job queue, tabs, actions)
-- [x] Earnings summary (`/dashboard/earnings`)
-- [x] Customer order form (upload + settings + price)
-- [x] Order confirmation with UPI QR
-- [x] Customer feedback form (`/feedback/:job-id`)
-- [x] Owner feedback dashboard tab (`/dashboard/feedback`)
-- [x] Star rating shown on shop page
-- [x] **Availability system — manual toggle + pre-commitment prompt**
-- [x] **Availability system — schedule configuration (`/dashboard/availability`)**
-- [x] **Availability system — reliability score calculation**
-- [x] **Availability system — soft lock (FORCED_OFF + cooldown)**
-- [x] **Availability system — active job limit enforcement**
-- [x] Platform admin panel (pending approvals, shop directory, status management)
-- [x] **Admin stat cards clickable** — each card links to a detailed view (`/admin/jobs?period=today|month` or `/admin/directory`)
-- [x] **Admin Jobs detail page** (`/admin/jobs`) — filterable list of jobs by period with summary stats
-- [x] **Owner dashboard auto-polls** every 30 s while shop is live — no manual refresh needed
-- [x] **New-order notification sound** — in-app chime (Web Audio API) plays on every new submitted job detected during polling or refresh
-- [x] File auto-delete on delivery AND cancellation
-- [x] PWA setup (vite-plugin-pwa, manifest, service worker)
-- [x] iOS install banner (Safari instruction prompt)
-- [x] Push notifications for Owner (VAPID + Supabase Edge Function)
-- [x] Global-ready architecture (i18n, currency, country config)
-- [x] Test suite (Vitest + Testing Library, 280+ tests across 26 files)
-- [ ] **Availability system — SLA enforcement (15min timer, auto-cancel, reminders)** — not yet
-- [ ] **Availability system — next available time display** — not yet
-- [ ] Admin flagging for low-rated shops — not yet
-- [x] **RLS fix: society availability display** — fixed via `get_societies_with_availability` SECURITY DEFINER RPC (migration 012)
+- [ ] Landing page with locality/pincode search
+- [ ] Provider type selector — Home Owner vs Print Shop
+- [ ] Owner registration (3 steps — shared form, conditional fields)
+- [ ] Society creation with fuzzy match (Home Owners)
+- [ ] Locality + landmark entry for Print Shops
+- [ ] Map pin setup — Nominatim geocoding + Leaflet pin (both provider types)
+- [ ] Owner-configurable active job limit
+- [ ] Service display menu for Print Shops (display-only, free text pricing)
+- [ ] Owner dashboard (job queue, tabs, actions)
+- [ ] Earnings summary
+- [ ] Customer order form — print only (B&W/Colour, copies, paper size, file upload)
+- [ ] Simple price calculation (pages × copies × rate + delivery)
+- [ ] Order confirmation with UPI QR
+- [ ] Print shop profile page — rich layout with service display + contact buttons + map pin
+- [ ] Home owner profile page — simple layout
+- [ ] Customer feedback form (`/feedback/:job-id`)
+- [ ] Owner feedback dashboard tab
+- [ ] Star rating on search results and shop profile
+- [ ] Admin flagging for low-rated shops
+- [ ] Search results — list view with locality filter
+- [ ] Provider type badges in search results
+- [ ] Availability system — manual toggle + pre-commitment prompt
+- [ ] Availability system — schedule configuration
+- [ ] Availability system — SLA enforcement
+- [ ] Availability system — system override + reliability score
+- [ ] Platform admin panel (basic)
+- [ ] File auto-delete on delivery AND cancellation
+- [ ] PWA setup + iOS install banner
+- [ ] Push notifications (VAPID + Supabase Edge Function)
+- [ ] Global-ready architecture (i18n, currency, country config)
+
+### Phase 2 — Growth
+- [ ] Map view on search results (multiple pins — Leaflet + OSM)
+- [ ] Locality-based filtering + distance sorting
+- [ ] WATI WhatsApp automated messages
+- [ ] Real-time job status (Supabase Realtime)
+- [ ] Customer order tracking page
+- [ ] Owner subscription billing (Razorpay Subscriptions)
+- [ ] Owner response to feedback
+- [ ] Mappls integration for better India accuracy
 
 ### Phase 2 — Growth
 - [ ] WATI WhatsApp automated messages (order confirmation, delivery, feedback request)
@@ -1951,6 +2054,10 @@ inkneighbour/
 │   │   ├── PriceBreakdown.jsx
 │   │   ├── StarRating.jsx
 │   │   ├── IOSInstallBanner.jsx
+│   │   ├── ProviderTypeSelector.jsx      ← Home vs Shop selector on registration
+│   │   ├── ProviderCard.jsx              ← Unified card for both types in search results
+│   │   ├── ShopLocationMap.jsx           ← Static Leaflet pin for shop profile + registration
+│   │   ├── ServiceDisplayMenu.jsx        ← Display-only service list on print shop profile
 │   │   └── UPIQRCode.jsx
 │   ├── pages/
 │   │   ├── Landing.jsx
@@ -1970,17 +2077,14 @@ inkneighbour/
 │   │   ├── ShopPage.jsx
 │   │   ├── OrderConfirm.jsx
 │   │   ├── FeedbackForm.jsx
-│   │   ├── Admin.jsx
-│   │   ├── AdminDirectory.jsx
-│   │   └── AdminJobs.jsx          ← Jobs detail view (today / monthly GMV)
+│   │   └── Admin.jsx
 │   ├── lib/
 │   │   ├── supabase.js        ← Supabase client init
 │   │   ├── countries.js       ← Country config (currency, labels)
-│   │   ├── pricing.js         ← Price calculation utilities
+│   │   ├── pricing.js         ← Price calculation utilities (pages × copies × rate + delivery)
 │   │   ├── slugify.js         ← Society name → URL slug
 │   │   ├── storage.js         ← deleteJobFile() — called on delivered + cancelled
 │   │   ├── availability.js    ← getEffectiveState(), resolveNextAvailable()
-│   │   ├── sound.js           ← playNotificationSound() — Web Audio API chime
 │   │   └── fuzzyMatch.js      ← Fuse.js wrapper
 │   ├── payments/
 │   │   ├── index.js           ← Payment method router
@@ -2009,9 +2113,11 @@ inkneighbour/
 │   │       └── index.ts       ← WATI / Twilio Edge Function (Phase 2)
 │   ├── migrations/
 │   │   ├── 001_initial_schema.sql
-│   │   ├── 002_feedback.sql           ← feedback table + trigger for owner rating
-│   │   ├── 003_push_subscriptions.sql ← push_subscriptions table
-│   │   └── 004_availability.sql       ← availability_schedules, missed_jobs, get_effective_state()
+│   │   ├── 002_feedback.sql               ← feedback table + trigger for owner rating
+│   │   ├── 003_push_subscriptions.sql     ← push_subscriptions table
+│   │   ├── 004_availability.sql           ← availability_schedules, missed_jobs, get_effective_state()
+│   │   ├── 005_print_shop_owners.sql      ← provider_type, shop fields, delivery_fee_tiers, partial unique index
+│   │   └── 006_service_menu.sql           ← service_menu display-only table (print shops)
 │   └── seed.sql               ← Country config + platform defaults
 ├── .env.example
 ├── vite.config.js
@@ -2077,4 +2183,4 @@ Add CNAME record in domain registrar pointing to cname.vercel-dns.com
 ---
 
 *Document maintained by Zaheer · Zakapedia · inkneighbour.zakapedia.in*  
-*Last updated: April 2026*
+*Last updated: April 2025*
