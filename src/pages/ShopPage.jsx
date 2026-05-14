@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Printer, Zap, Clock, Users, Smartphone, Banknote, Copy as CopyIcon, Layers, Search } from 'lucide-react'
+import {
+  Printer, Zap, Clock, Users, Smartphone, Banknote,
+  Copy as CopyIcon, Layers, Search, Phone, MessageCircle, Navigation
+} from 'lucide-react'
+import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import iconUrl         from 'leaflet/dist/images/marker-icon.png'
+import iconRetinaUrl   from 'leaflet/dist/images/marker-icon-2x.png'
+import shadowUrl       from 'leaflet/dist/images/marker-shadow.png'
 import AppNav from '../components/AppNav'
 import Footer from '../components/Footer'
+import ServiceDisplayMenu from '../components/ServiceDisplayMenu'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, getCountry } from '../lib/countries'
@@ -17,21 +27,30 @@ import PriceBreakdown from '../components/PriceBreakdown'
 import UPIQRCode from '../components/UPIQRCode'
 import { getPaymentMethods } from '../payments/index'
 
+// Fix leaflet default icon paths broken by Vite bundling
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl })
+
 const STEPS = ['details', 'upload', 'options', 'payment']
-const STEP_LABELS = { details: 'Your details', upload: 'Upload document', options: 'Print options', payment: 'Price & payment' }
+const STEP_LABELS = {
+  details: 'Your details',
+  upload:  'Upload document',
+  options: 'Print options',
+  payment: 'Price & payment'
+}
 
 export default function ShopPage() {
   const { slug } = useParams()
   const { t } = useTranslation()
   const navigate = useNavigate()
 
-  const [shop, setShop] = useState(null)          // society row with owners join
+  // shop data — one of two shapes depending on lookup path
+  const [shopData, setShopData] = useState(null)   // { owner, society|null }
   const [reliability, setReliability] = useState(null)
   const [loading, setLoading] = useState(true)
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
 
-  // Form state
   const [form, setForm] = useState({
     customer_name: '', customer_flat: '', customer_phone: '',
     file: null, pageCount: null, fileName: '',
@@ -43,42 +62,65 @@ export default function ShopPage() {
   useEffect(() => {
     async function load() {
       try {
-        const { data, error } = await supabase
+        // ── Path 1: Home owner (via society slug) ───────────────────────────
+        const { data: socData } = await supabase
           .from('societies')
-          .select(`id, slug, name, postal_code, owners!inner(id, name, shop_name, status, bw_rate, color_rate, delivery_fee, upi_id, accept_cash, country_code, phone, max_active_jobs)`)
+          .select(`id, slug, name, postal_code, owners!inner(
+            id, name, shop_name, status, bw_rate, color_rate, delivery_fee,
+            upi_id, accept_cash, country_code, phone, max_active_jobs, provider_type,
+            feedback(star_rating)
+          )`)
           .eq('slug', slug)
           .maybeSingle()
 
-        console.log('[ShopPage] slug:', slug, 'data:', data, 'error:', error)
-        if (error || !data) return
-
-        // Supabase returns owners as a single object (not array) when society_id is UNIQUE
-        const normalizedData = {
-          ...data,
-          owners: data.owners
-            ? Array.isArray(data.owners) ? data.owners : [data.owners]
-            : []
+        if (socData?.owners) {
+          const owners = Array.isArray(socData.owners) ? socData.owners : [socData.owners]
+          if (owners.length > 0 && owners[0].status !== 'inactive') {
+            const owner = owners[0]
+            setShopData({ owner, society: socData })
+            if (owner.id) {
+              const { data: rel } = await supabase
+                .from('owner_reliability')
+                .select('reliability_score, active_jobs_count, max_active_jobs, avg_response_minutes')
+                .eq('owner_id', owner.id)
+                .maybeSingle()
+              setReliability(rel || null)
+            }
+            const methods = getPaymentMethods(owner.country_code, owner)
+            if (methods.length > 0) setForm(f => ({ ...f, payment_method: methods[0].id }))
+            setLoading(false)
+            return
+          }
         }
-        if (!normalizedData.owners.length) return
 
-        const owner = normalizedData.owners[0]
-        if (owner.status === 'inactive') return
+        // ── Path 2: Print shop (via owners.slug) ────────────────────────────
+        const { data: shopOwner } = await supabase
+          .from('owners')
+          .select(`
+            id, name, slug, shop_name, shop_address, locality, landmark, lat, lng,
+            status, bw_rate, color_rate, delivery_fee, upi_id, accept_cash,
+            country_code, phone, max_active_jobs, provider_type, gst_number,
+            feedback(star_rating),
+            service_menu(service_code, is_enabled, display_price),
+            delivery_fee_tiers(max_km, fee)
+          `)
+          .eq('slug', slug)
+          .eq('provider_type', 'shop')
+          .maybeSingle()
 
-        setShop(normalizedData)
-
-        if (owner?.id) {
+        if (shopOwner && shopOwner.status !== 'inactive') {
+          setShopData({ owner: shopOwner, society: null })
           const { data: rel } = await supabase
             .from('owner_reliability')
             .select('reliability_score, active_jobs_count, max_active_jobs, avg_response_minutes')
-            .eq('owner_id', owner.id)
+            .eq('owner_id', shopOwner.id)
             .maybeSingle()
           setReliability(rel || null)
+          const methods = getPaymentMethods(shopOwner.country_code, shopOwner)
+          if (methods.length > 0) setForm(f => ({ ...f, payment_method: methods[0].id }))
         }
-
-        const methods = getPaymentMethods(owner.country_code, owner)
-        if (methods.length > 0) setForm(f => ({ ...f, payment_method: methods[0].id }))
       } catch {
-        // leave shop null → "not found" message shown below
+        // leave shopData null → "not found" shown below
       } finally {
         setLoading(false)
       }
@@ -86,39 +128,54 @@ export default function ShopPage() {
     load()
   }, [slug])
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen"><p className="text-muted">{t('common.loading')}</p></div>
-  if (!shop || !shop.owners?.length) return <div className="flex items-center justify-center min-h-screen"><p className="text-muted">{t('errors.shop_not_found')}</p></div>
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-muted">{t('common.loading')}</p>
+    </div>
+  )
 
+  if (!shopData) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-muted">{t('errors.shop_not_found')}</p>
+    </div>
+  )
 
-  const owner = shop.owners[0]
-  const countryCode = owner.country_code || 'IN'
-  const country = getCountry(countryCode)
-  const fmt = v => formatCurrency(v, countryCode)
+  const { owner, society } = shopData
+  const isShop       = owner.provider_type === 'shop'
+  const countryCode  = owner.country_code || 'IN'
+  const country      = getCountry(countryCode)
+  const fmt          = v => formatCurrency(v, countryCode)
 
-  const rating = null // ratings shown once owner_stats view has public GRANT
+  const feedbackList = owner.feedback || []
+  const rating = feedbackList.length >= 3
+    ? { avg: (feedbackList.reduce((s, f) => s + f.star_rating, 0) / feedbackList.length).toFixed(1), count: feedbackList.length }
+    : null
 
   const paymentMethods = getPaymentMethods(countryCode, owner)
-  const ratePerPage = getRatePerPage(form.print_type, owner)
-  const pages = form.pageCount || 1
-  const breakdown = getPriceBreakdown(pages, form.copies, ratePerPage, owner.delivery_fee)
+  const ratePerPage    = getRatePerPage(form.print_type, owner)
+  const pages          = form.pageCount || 1
 
-  // Job limit check: rely on server-side view
+  // For print shops, compute delivery fee from tiers based on a flat assumption
+  // (the shop page shows estimated price; actual is confirmed by owner).
+  const effectiveDeliveryFee = isShop
+    ? (owner.delivery_fee_tiers?.length
+        ? Math.min(...owner.delivery_fee_tiers.map(t => t.fee))
+        : owner.delivery_fee ?? 0)
+    : owner.delivery_fee
+
+  const breakdown = getPriceBreakdown(pages, form.copies, ratePerPage, effectiveDeliveryFee)
+
   const activeCount = reliability?.active_jobs_count ?? 0
-  const maxJobs = reliability?.max_active_jobs ?? owner.max_active_jobs ?? 3
+  const maxJobs     = reliability?.max_active_jobs ?? owner.max_active_jobs ?? 3
   const isAtJobLimit = activeCount >= maxJobs
 
-  // Transparency signals
-  const avgMins = reliability?.avg_response_minutes
-    ? parseFloat(reliability.avg_response_minutes)
-    : null
-  const reliabilityScore = reliability?.reliability_score
-    ? parseFloat(reliability.reliability_score)
-    : null
+  const avgMins         = reliability?.avg_response_minutes ? parseFloat(reliability.avg_response_minutes) : null
+  const reliabilityScore = reliability?.reliability_score   ? parseFloat(reliability.reliability_score)    : null
 
   function getTransparencySignal() {
     if (isAtJobLimit) return { type: 'busy', icon: Users }
     if (avgMins !== null) {
-      if (avgMins <= 5) return { type: 'fast', icon: Zap }
+      if (avgMins <= 5)  return { type: 'fast',   icon: Zap }
       if (avgMins <= 12) return { type: 'normal', icon: Clock }
       return { type: 'slow', icon: Clock }
     }
@@ -126,6 +183,45 @@ export default function ShopPage() {
   }
   const signal = getTransparencySignal()
 
+  const shopTitle = owner.shop_name || (society ? `${society.name} Print Shop` : owner.name)
+
+  // ── Not-active screens ───────────────────────────────────────────────────
+  if (owner.status !== 'active') {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center px-4">
+        <div className="text-center space-y-3 max-w-sm">
+          <Printer size={48} className="text-muted mx-auto" />
+          <h1 className="font-display text-2xl font-bold text-ink">{shopTitle}</h1>
+          <Badge status={owner.status} />
+          <p className="text-muted">
+            {owner.status === 'pending' ? t('errors.shop_pending') : t('errors.shop_paused')}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isAtJobLimit) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center px-4">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="w-16 h-16 rounded-full bg-amber/10 flex items-center justify-center mx-auto">
+            <Users size={32} className="text-amber" />
+          </div>
+          <h1 className="font-display text-2xl font-bold text-ink">{shopTitle}</h1>
+          <p className="text-lg text-ink font-semibold">{t('transparency.busy')}</p>
+          <p className="text-muted text-base">{t('job_limit.reached')}</p>
+          <p className="text-sm text-muted">
+            {avgMins !== null
+              ? t('transparency.try_again_avg', { minutes: Math.round(avgMins) })
+              : t('transparency.try_again_later')}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
   function setField(field, value) {
     setForm(f => ({ ...f, [field]: value }))
     setErrors(e => ({ ...e, [field]: undefined }))
@@ -134,8 +230,8 @@ export default function ShopPage() {
   function validateStep() {
     if (step === 0) {
       const e = {}
-      if (!form.customer_name.trim()) e.customer_name = t('register.validation_required')
-      if (!form.customer_flat.trim()) e.customer_flat = t('register.validation_required')
+      if (!form.customer_name.trim())  e.customer_name  = t('register.validation_required')
+      if (!form.customer_flat.trim())  e.customer_flat  = t('register.validation_required')
       if (!form.customer_phone.trim()) e.customer_phone = t('register.validation_required')
       return e
     }
@@ -155,7 +251,6 @@ export default function ShopPage() {
     if (!form.payment_method) { toast.error('Select a payment method'); return }
     setSubmitting(true)
     try {
-      // 1. Upload file to Supabase Storage
       const jobId = crypto.randomUUID()
       let filePath = null
       if (form.file) {
@@ -166,11 +261,9 @@ export default function ShopPage() {
         if (uploadErr) throw uploadErr
       }
 
-      // 2. Get next job number
       const { count } = await supabase.from('jobs').select('id', { count: 'exact', head: true })
       const jobNumber = `INK-${String((count || 0) + 1).padStart(4, '0')}`
 
-      // 3. Insert job — society_id comes from the shop (society) row
       const deliveryPin = String(Math.floor(1000 + Math.random() * 9000))
       const { data: job, error: jobErr } = await supabase
         .from('jobs')
@@ -178,7 +271,7 @@ export default function ShopPage() {
           id: jobId,
           job_number: jobNumber,
           owner_id: owner.id,
-          society_id: shop.id,
+          society_id: society?.id || null,
           customer_name: form.customer_name,
           customer_flat: form.customer_flat,
           customer_phone: form.customer_phone || null,
@@ -201,12 +294,11 @@ export default function ShopPage() {
 
       if (jobErr) throw jobErr
 
-      // Persist so customer can find tracking link after closing the browser
       localStorage.setItem('last_order', JSON.stringify({
         slug,
         jobId: job.id,
         jobNumber: job.job_number,
-        shopName: owner.shop_name || shop.name,
+        shopName: shopTitle,
         createdAt: new Date().toISOString()
       }))
 
@@ -218,67 +310,42 @@ export default function ShopPage() {
     }
   }
 
-  if (owner.status !== 'active') {
-    return (
-      <div className="min-h-screen bg-bg flex items-center justify-center px-4">
-        <div className="text-center space-y-3 max-w-sm">
-          <Printer size={48} className="text-muted mx-auto" />
-          <h1 className="font-display text-2xl font-bold text-ink">{owner.shop_name || shop.name + ' Print Shop'}</h1>
-          <Badge status={owner.status} />
-          <p className="text-muted">
-            {owner.status === 'pending' ? t('errors.shop_pending') : t('errors.shop_paused')}
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // Owner is at active job limit — show busy notice instead of order form
-  if (isAtJobLimit) {
-    return (
-      <div className="min-h-screen bg-bg flex items-center justify-center px-4">
-        <div className="text-center space-y-4 max-w-sm">
-          <div className="w-16 h-16 rounded-full bg-amber/10 flex items-center justify-center mx-auto">
-            <Users size={32} className="text-amber" />
-          </div>
-          <h1 className="font-display text-2xl font-bold text-ink">{owner.shop_name || shop.name + ' Print Shop'}</h1>
-          <p className="text-lg text-ink font-semibold">{t('transparency.busy')}</p>
-          <p className="text-muted text-base">{t('job_limit.reached')}</p>
-          <p className="text-sm text-muted">
-            {avgMins !== null
-              ? t('transparency.try_again_avg', { minutes: Math.round(avgMins) })
-              : t('transparency.try_again_later')}
-          </p>
-        </div>
-      </div>
-    )
+  // ── Delivery copy for header ─────────────────────────────────────────────
+  function deliveryHeaderCopy() {
+    if (isShop) {
+      const tiers = owner.delivery_fee_tiers
+      if (tiers?.length) {
+        const minFee = Math.min(...tiers.map(t => t.fee))
+        return minFee === 0 ? 'Free delivery' : `Delivery from ${fmt(minFee)}`
+      }
+    }
+    return owner.delivery_fee > 0 ? `Delivery ${fmt(owner.delivery_fee)}` : 'Free delivery'
   }
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
-      {/* Navbar */}
       <AppNav back={sessionStorage.getItem('find_back') || undefined} />
 
-      {/* Shop header */}
+      {/* ── Shop header ────────────────────────────────────────────────────── */}
       <div style={{ backgroundColor: '#1A1A2E' }} className="px-4 py-5 text-white">
         <div className="max-w-lg mx-auto space-y-2">
-          <h1 className="font-display text-xl font-bold leading-tight">{owner.shop_name || shop.name + ' Print Shop'}</h1>
+          <h1 className="font-display text-xl font-bold leading-tight">{shopTitle}</h1>
           <p className="text-white/60 text-sm">{t('shop.managed_by', { name: owner.name.split(' ')[0] })}</p>
+          {isShop && owner.locality && (
+            <p className="text-white/50 text-xs">{[owner.locality, owner.landmark].filter(Boolean).join(' · ')}</p>
+          )}
           <div className="flex flex-wrap gap-1.5 text-xs">
             <span className="bg-white/15 border border-white/20 px-2.5 py-1 rounded-full font-medium">B&W {fmt(owner.bw_rate)}/pg</span>
             <span className="bg-white/15 border border-white/20 px-2.5 py-1 rounded-full font-medium">Colour {fmt(owner.color_rate)}/pg</span>
-            <span className="bg-white/15 border border-white/20 px-2.5 py-1 rounded-full font-medium">
-              {owner.delivery_fee > 0 ? `Delivery ${fmt(owner.delivery_fee)}` : 'Free delivery'}
-            </span>
+            <span className="bg-white/15 border border-white/20 px-2.5 py-1 rounded-full font-medium">{deliveryHeaderCopy()}</span>
           </div>
           {rating && <StarDisplay rating={parseFloat(rating.avg)} count={rating.count} className="text-white" />}
 
-          {/* Transparency signal */}
           {signal && (
             <div className={[
               'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold',
-              signal.type === 'fast'   ? 'bg-green/20 text-green-100'  :
-              signal.type === 'slow'   ? 'bg-amber/20 text-amber-100'  :
+              signal.type === 'fast' ? 'bg-green/20 text-green-100' :
+              signal.type === 'slow' ? 'bg-amber/20 text-amber-100' :
               'bg-white/10 text-white/80'
             ].join(' ')}>
               <signal.icon size={12} />
@@ -290,17 +357,17 @@ export default function ShopPage() {
           )}
 
           {/* Find another printer */}
-          {shop.postal_code && (
+          {society?.postal_code && (
             <Link
-              to={`/find?pincode=${shop.postal_code}`}
+              to={`/find?pincode=${society.postal_code}`}
               className="inline-flex items-center gap-1.5 text-white/50 hover:text-white/80 text-xs transition-colors"
             >
               <Search size={12} />
-              Find another printer in {shop.postal_code}
+              Find another printer in {society.postal_code}
             </Link>
           )}
 
-          {/* Progress bar */}
+          {/* Order progress bar */}
           <div className="flex gap-2 pt-1">
             {STEPS.map((_, i) => (
               <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? 'bg-orange' : 'bg-white/20'}`} />
@@ -311,13 +378,112 @@ export default function ShopPage() {
       </div>
 
       <div className="max-w-lg mx-auto w-full px-4 pt-5 pb-24 space-y-4">
+
+        {/* ── Print Shop info sections (shown before the order form) ────────── */}
+        {isShop && (
+          <>
+            {/* Contact bar */}
+            <div className="bg-surface rounded-xl shadow-card p-4">
+              <p className="font-bold text-base text-ink mb-3">{t('shop.contact_title')}</p>
+              <div className="grid grid-cols-3 gap-2">
+                {owner.phone && (
+                  <a
+                    href={`tel:${owner.phone}`}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-bg hover:bg-violet/5 transition-colors text-center"
+                  >
+                    <Phone size={20} className="text-violet" />
+                    <span className="text-xs font-semibold text-ink">{t('shop.contact_call')}</span>
+                  </a>
+                )}
+                {owner.phone && (
+                  <a
+                    href={`https://wa.me/${owner.phone.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-bg hover:bg-green/5 transition-colors text-center"
+                  >
+                    <MessageCircle size={20} className="text-green" />
+                    <span className="text-xs font-semibold text-ink">{t('shop.contact_whatsapp')}</span>
+                  </a>
+                )}
+                {owner.lat && owner.lng && (
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${owner.lat},${owner.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-bg hover:bg-sky/5 transition-colors text-center"
+                  >
+                    <Navigation size={20} className="text-sky" />
+                    <span className="text-xs font-semibold text-ink">{t('shop.contact_directions')}</span>
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Static map pin */}
+            {owner.lat && owner.lng && (
+              <div className="bg-surface rounded-xl shadow-card overflow-hidden">
+                <div className="h-44">
+                  <MapContainer
+                    center={[owner.lat, owner.lng]}
+                    zoom={15}
+                    scrollWheelZoom={false}
+                    dragging={false}
+                    touchZoom={false}
+                    doubleClickZoom={false}
+                    zoomControl={false}
+                    attributionControl={false}
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <Marker position={[owner.lat, owner.lng]} />
+                  </MapContainer>
+                </div>
+                {owner.shop_address && (
+                  <p className="px-4 py-3 text-sm text-muted">{owner.shop_address}</p>
+                )}
+              </div>
+            )}
+
+            {/* Services menu */}
+            {owner.service_menu?.length > 0 && (
+              <div className="bg-surface rounded-xl shadow-card p-4 space-y-3">
+                <p className="font-bold text-base text-ink">{t('shop.services_title')}</p>
+                <ServiceDisplayMenu services={owner.service_menu} />
+              </div>
+            )}
+
+            {/* Delivery tiers */}
+            {owner.delivery_fee_tiers?.length > 0 && (
+              <div className="bg-surface rounded-xl shadow-card p-4 space-y-3">
+                <p className="font-bold text-base text-ink">{t('shop.delivery_tiers_title')}</p>
+                <div className="space-y-2">
+                  {owner.delivery_fee_tiers
+                    .slice()
+                    .sort((a, b) => a.max_km - b.max_km)
+                    .map((tier, i) => (
+                      <div key={i} className="flex justify-between items-center py-1.5 border-b border-border last:border-0">
+                        <span className="text-sm text-ink">Up to {tier.max_km} km</span>
+                        <span className="text-sm font-semibold text-ink">
+                          {tier.fee === 0 ? 'Free' : fmt(tier.fee)}
+                        </span>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Order form ───────────────────────────────────────────────────── */}
         <div className="bg-surface rounded-xl shadow-card p-4 space-y-4">
           {/* Step 1: Customer details */}
           {step === 0 && (
             <>
               <Input label={t('shop.name_label')} value={form.customer_name} onChange={e => setField('customer_name', e.target.value)} error={errors.customer_name} placeholder="Your full name" required autoFocus />
               <Input label={`${country.flat_label} number`} value={form.customer_flat} onChange={e => setField('customer_flat', e.target.value)} error={errors.customer_flat} placeholder="e.g. B-302" required />
-              <Input label={`${t('shop.phone_label')}`} type="tel" value={form.customer_phone} onChange={e => setField('customer_phone', e.target.value)} error={errors.customer_phone} placeholder="For WhatsApp delivery updates" required />
+              <Input label={t('shop.phone_label')} type="tel" value={form.customer_phone} onChange={e => setField('customer_phone', e.target.value)} error={errors.customer_phone} placeholder="For delivery updates" required />
             </>
           )}
 
@@ -333,7 +499,7 @@ export default function ShopPage() {
                 }}
               />
               <p className="text-xs text-muted text-center leading-relaxed">
-                Your document is deleted from our servers as soon as the job is marked delivered or cancelled. We do not retain any files.
+                Your document is deleted from our servers as soon as the job is marked delivered or cancelled.
               </p>
             </>
           )}
@@ -346,8 +512,8 @@ export default function ShopPage() {
                 <p className="text-base font-semibold text-ink mb-2">Print type</p>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { id: 'bw', label: 'Black & White', rate: owner.bw_rate },
-                    { id: 'color', label: 'Colour', rate: owner.color_rate }
+                    { id: 'bw',    label: 'Black & White', rate: owner.bw_rate    },
+                    { id: 'color', label: 'Colour',        rate: owner.color_rate }
                   ].map(opt => (
                     <button
                       key={opt.id}
@@ -371,7 +537,7 @@ export default function ShopPage() {
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { id: 'single', label: 'Single sided', sub: 'One side per page' },
-                    { id: 'double', label: 'Double sided', sub: 'Front & back' }
+                    { id: 'double', label: 'Double sided', sub: 'Front & back'      }
                   ].map(opt => (
                     <button
                       key={opt.id}
@@ -424,7 +590,7 @@ export default function ShopPage() {
                 </div>
               </div>
 
-              {/* Printing instructions */}
+              {/* Notes */}
               <div>
                 <label className="block text-base font-semibold text-ink mb-2">
                   Printing instructions <span className="text-sm font-normal text-muted">(optional)</span>
@@ -451,9 +617,15 @@ export default function ShopPage() {
                 pages={pages}
                 copies={form.copies}
                 ratePerPage={ratePerPage}
-                deliveryFee={owner.delivery_fee}
+                deliveryFee={effectiveDeliveryFee}
                 countryCode={countryCode}
               />
+
+              {isShop && owner.delivery_fee_tiers?.length > 0 && (
+                <p className="text-xs text-muted text-center">
+                  {t('shop.delivery_fee_estimated')}
+                </p>
+              )}
 
               {paymentMethods.length > 1 && (
                 <div>
@@ -470,7 +642,7 @@ export default function ShopPage() {
                       >
                         {m.id === 'upi'
                           ? <><Smartphone size={16} /> UPI</>
-                          : <><Banknote size={16} /> Cash</>
+                          : <><Banknote   size={16} /> Cash</>
                         }
                       </button>
                     ))}
@@ -489,7 +661,6 @@ export default function ShopPage() {
             </>
           )}
         </div>
-
       </div>
 
       {/* Sticky nav buttons */}

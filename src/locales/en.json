@@ -238,7 +238,14 @@
     "bw_option": "Black & White",
     "color_option": "Colour",
     "copies_label": "Copies",
-    "paper_size_label": "Paper size"
+    "paper_size_label": "Paper size",
+    "contact_title": "Contact & directions",
+    "contact_call": "Call",
+    "contact_whatsapp": "WhatsApp",
+    "contact_directions": "Directions",
+    "services_title": "Additional services",
+    "delivery_tiers_title": "Delivery fees",
+    "delivery_fee_estimated": "Actual delivery fee confirmed by the shop based on your distance."
   },
   "order_confirm": {
     "title": "Order placed!",

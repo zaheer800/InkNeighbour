@@ -184,8 +184,14 @@ export default function Step3Rates() {
       }
 
       // Build the serialisable payload used by both immediate and deferred paths
+      // Slug is needed for print shops; for home owners it's derived from society on Dashboard
+      const pendingShopSlug = step1.provider_type === 'shop'
+        ? makeShopSlug(form.shop_name.trim()) + '-' + (authData.user?.id || '').split('-')[0]
+        : null
+
       const ownerPayload = {
         provider_type:  step1.provider_type,
+        slug:           pendingShopSlug,
         name:           step1.name,
         phone:          step1.phone,
         country_code:   step1.country_code,
@@ -257,10 +263,15 @@ export default function Step3Rates() {
         }
       }
 
+      const shopSlug = isShop
+        ? makeShopSlug(ownerPayload.shop_name) + '-' + userId.split('-')[0]
+        : null
+
       const ownerRow = isShop
         ? {
             user_id:         userId,
             provider_type:   'shop',
+            slug:            shopSlug,
             name:            ownerPayload.name,
             phone:           ownerPayload.phone,
             shop_name:       ownerPayload.shop_name,

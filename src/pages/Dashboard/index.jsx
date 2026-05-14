@@ -108,6 +108,7 @@ export default function DashboardJobs() {
           ? {
               user_id:         user.id,
               provider_type:   'shop',
+              slug:            p.slug || null,
               name:            p.name,
               phone:           p.phone,
               shop_name:       p.shop_name,
