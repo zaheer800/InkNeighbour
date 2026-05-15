@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import {
-  Printer, Upload, Package, ArrowRight, Search,
-  Star, Zap, Shield, MessageCircle, CheckCircle, MapPin
+  Printer, Upload, Package, Search,
+  CheckCircle, MapPin, Home, Store, MessageCircle,
+  FileText, IndianRupee, ArrowRight, Zap, Shield, Star
 } from 'lucide-react'
 
 export default function Landing() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
   const [pincode, setPincode] = useState('')
 
@@ -24,367 +23,359 @@ export default function Landing() {
     <div className="min-h-screen bg-bg overflow-x-hidden">
 
       {/* ── Navbar ─────────────────────────────────────────── */}
-      <nav style={{ backgroundColor: '#1A1A2E' }} className="text-white sticky top-0 z-40 border-b border-white/10">
+      <nav style={{ backgroundColor: '#0d0d20' }} className="text-white sticky top-0 z-40 border-b border-white/[0.08]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-[60px] flex items-center justify-between gap-4">
-          <Link to="/" className="font-display font-black text-[22px] tracking-tight shrink-0 flex items-center">
+          <Link to="/" className="font-display font-black text-xl tracking-tight shrink-0 flex items-center gap-0.5">
             Ink<span className="text-orange">Neighbour</span>
           </Link>
-          <Link
-            to="/login"
-            className="text-white/70 hover:text-white text-[13px] font-medium transition-colors px-2 py-1.5 min-h-[44px] flex items-center"
-          >
-            Owner Login
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link to="/find" className="hidden sm:flex text-white/60 hover:text-white text-sm font-medium transition-colors px-3 min-h-[44px] items-center whitespace-nowrap">
+              Find a Printer
+            </Link>
+            <Link to="/login" className="flex items-center min-h-[36px] px-4 rounded-xl border border-white/15 text-white/80 hover:text-white hover:border-white/30 text-sm font-semibold transition-colors whitespace-nowrap">
+              Owner Login
+            </Link>
+          </div>
         </div>
       </nav>
 
       {/* ── Hero ───────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-ink2 text-white">
-        {/* Deep layered background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0d0d20] via-ink2 to-[#120e2a]" />
+      <section className="relative overflow-hidden text-white" style={{ background: 'linear-gradient(160deg, #0d0d20 0%, #1A1A2E 50%, #120e2a 100%)' }}>
 
-        {/* Halftone dot grid — more visible */}
-        <div
-          className="absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage: 'radial-gradient(circle, #ffffff 1.2px, transparent 1.2px)',
-            backgroundSize: '24px 24px'
-          }}
-        />
+        {/* Grid texture */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
-        {/* Subtle edge glow — kept very dim so text stays readable */}
-        <div className="absolute top-[-10%] right-[-8%] w-[400px] h-[400px] rounded-full blur-[120px] pointer-events-none" style={{ backgroundColor: 'rgba(255,107,53,0.08)' }} />
-        <div className="absolute bottom-[-5%] left-[-5%] w-[300px] h-[300px] rounded-full blur-[100px] pointer-events-none" style={{ backgroundColor: 'rgba(124,58,237,0.08)' }} />
+        {/* Glows */}
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full blur-[140px] pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,107,53,0.12) 0%, transparent 70%)' }} />
+        <div className="absolute bottom-0 left-[-10%] w-[500px] h-[500px] rounded-full blur-[120px] pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%)' }} />
 
-        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 pt-10 sm:pt-16 pb-4 text-center">
+        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-14 text-center">
 
-          {/* Live badge */}
-          <div className="inline-flex items-center gap-2.5 bg-white/[0.08] border border-white/[0.12] px-4 py-2 rounded-full text-sm font-semibold mb-8 backdrop-blur-sm">
-            <span className="relative flex h-2 w-2">
+          {/* Tagline pill */}
+          <div className="inline-flex items-center gap-2.5 border border-white/[0.12] px-4 py-2 rounded-full text-sm font-bold mb-8" style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}>
+            <span className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green" />
             </span>
-            Neighbourhood printing, made easy
+            <span className="text-white/80">Print it.&nbsp;</span>
+            <span className="text-orange">Drop it.&nbsp;</span>
+            <span className="text-white/80">Done.</span>
           </div>
 
-          <div className="flex items-center justify-center gap-3 mb-6">
-            {/* Print it */}
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(255,107,53,0.18)', border: '1px solid rgba(255,107,53,0.3)' }}>
-                <Printer size={20} className="text-orange" />
-              </div>
-              <span className="font-display font-bold text-white text-sm leading-none px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>Print it.</span>
-            </div>
-
-            <ArrowRight size={14} className="text-white/30 mt-[-16px] shrink-0" />
-
-            {/* Drop it */}
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(124,58,237,0.18)', border: '1px solid rgba(124,58,237,0.3)' }}>
-                <Package size={20} className="text-violet2" />
-              </div>
-              <span className="font-display font-bold text-white text-sm leading-none px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>Drop it.</span>
-            </div>
-
-            <ArrowRight size={14} className="text-white/30 mt-[-16px] shrink-0" />
-
-            {/* Done */}
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(16,185,129,0.18)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                <CheckCircle size={20} className="text-green" />
-              </div>
-              <span className="font-display font-bold text-white text-sm leading-none px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>Done.</span>
-            </div>
-          </div>
-
-          <h1 className="font-display font-black text-3xl sm:text-4xl md:text-5xl text-white leading-tight tracking-tight mb-4">
-            Printing, delivered to<br className="hidden sm:block" /> your door.
+          {/* Headline */}
+          <h1 className="font-display font-black text-4xl sm:text-6xl text-white leading-[1.05] tracking-tight mb-6">
+            Printing, delivered<br />
+            <span style={{ background: 'linear-gradient(90deg, #FF6B35, #FF8C61)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              to your door.
+            </span>
           </h1>
 
-          <p className="text-white/55 text-base sm:text-lg max-w-sm mx-auto leading-relaxed mb-10">
-            Find a home printer in your building and get your documents at your door — today.
+          <p className="text-white/55 text-lg sm:text-xl max-w-xl mx-auto leading-relaxed mb-10">
+            Upload your file. A nearby <strong className="text-white/85 font-semibold">home printer owner</strong> or <strong className="text-white/85 font-semibold">local print shop</strong> prints it and delivers it to you — today.
           </p>
 
-          {/* Search card */}
-          <form onSubmit={handleFind} className="max-w-[420px] mx-auto mb-0">
-            <div
-              className="flex gap-2 p-2 rounded-2xl border border-white/15"
-              style={{ background: 'rgba(255,255,255,0.08)' }}
-            >
-              <div className="flex-1 min-w-0 flex items-center gap-2.5 pl-3">
-                <MapPin size={16} className="text-orange shrink-0" />
-                <input
-                  type="text"
-                  value={pincode}
-                  onChange={e => setPincode(e.target.value)}
-                  placeholder="Your pincode"
-                  className="flex-1 min-w-0 min-h-[48px] bg-transparent text-white placeholder:text-white/40 text-base font-medium focus:outline-none"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={10}
-                />
+          {/* Flow icons */}
+          <div className="flex items-center justify-center gap-3 mb-10">
+            {[
+              { icon: FileText, label: 'Upload',   bg: 'rgba(124,58,237,0.2)',  border: 'rgba(124,58,237,0.35)', color: '#A78BFA' },
+              { icon: Printer,  label: 'Print',    bg: 'rgba(255,107,53,0.2)',  border: 'rgba(255,107,53,0.35)', color: '#FF8C61' },
+              { icon: Package,  label: 'Deliver',  bg: 'rgba(16,185,129,0.2)',  border: 'rgba(16,185,129,0.35)', color: '#10B981' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: item.bg, border: `1px solid ${item.border}` }}>
+                    <item.icon size={20} style={{ color: item.color }} />
+                  </div>
+                  <span className="text-xs font-bold text-white/50">{item.label}</span>
+                </div>
+                {i < 2 && <ArrowRight size={14} className="text-white/20 mb-4 shrink-0" />}
               </div>
-              <button
-                type="submit"
-                className="text-white font-bold text-sm px-5 py-3 rounded-xl transition-all shrink-0 min-h-[48px]"
-                style={{ backgroundColor: '#FF6B35' }}
-              >
-                Find Printer
-              </button>
-            </div>
-          </form>
+            ))}
+          </div>
 
+          {/* Search bar */}
+          <div className="max-w-md mx-auto">
+            <form onSubmit={handleFind}>
+              <div className="flex gap-2 p-1.5 rounded-2xl border border-white/[0.12]" style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)' }}>
+                <div className="flex-1 min-w-0 flex items-center gap-2.5 pl-3">
+                  <MapPin size={16} className="text-orange shrink-0" />
+                  <input
+                    type="text"
+                    value={pincode}
+                    onChange={e => setPincode(e.target.value)}
+                    placeholder="Enter your pincode"
+                    className="flex-1 min-w-0 min-h-[50px] bg-transparent text-white placeholder:text-white/35 text-base font-medium focus:outline-none"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                  />
+                </div>
+                <button type="submit" className="shrink-0 text-white font-bold text-sm px-6 rounded-xl min-h-[50px] transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(135deg, #FF6B35, #e85d25)' }}>
+                  Find Printer
+                </button>
+              </div>
+            </form>
+
+            {lastOrder && (
+              <Link to={`/${lastOrder.slug}/confirm/${lastOrder.jobId}`} className="mt-3 flex items-center justify-between w-full rounded-xl px-4 py-2.5 transition-colors border border-white/10 hover:border-white/20" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <div className="text-left">
+                  <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">Recent order</p>
+                  <p className="text-white/80 font-semibold text-sm">{lastOrder.jobNumber} · {lastOrder.shopName}</p>
+                </div>
+                <span className="text-orange text-xs font-bold ml-3">Track →</span>
+              </Link>
+            )}
+
+            <p className="text-white/30 text-xs mt-4">No sign-up required &nbsp;·&nbsp; No app download</p>
+          </div>
         </div>
 
-        {/* Track existing order */}
-        {lastOrder && (
-          <div className="max-w-[420px] mx-auto pb-8 px-4">
-            <Link
-              to={`/${lastOrder.slug}/confirm/${lastOrder.jobId}`}
-              className="flex items-center justify-between w-full bg-white/8 hover:bg-white/12 border border-white/15 rounded-xl px-4 py-3 transition-colors"
-            >
-              <div className="text-left">
-                <p className="text-white/50 text-[11px] font-medium uppercase tracking-wide">Recent order</p>
-                <p className="text-white font-semibold text-sm">{lastOrder.jobNumber} · {lastOrder.shopName}</p>
-              </div>
-              <span className="text-orange text-xs font-bold shrink-0 ml-3">Track →</span>
-            </Link>
-          </div>
-        )}
-
+        {/* Bottom fade */}
+        <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent, #F4F3FF)' }} />
       </section>
 
       {/* ── Trust strip ────────────────────────────────────── */}
-      <section className="px-4 sm:px-6 pt-5 pb-6 bg-bg">
-        <div className="max-w-2xl mx-auto">
-          <div className="grid grid-cols-3 gap-3">
+      <section className="bg-bg px-4 sm:px-6 py-6">
+        <div className="max-w-3xl mx-auto grid grid-cols-3 gap-3">
+          {[
+            { icon: Zap,    label: 'Same-day',   sub: 'delivery',       color: 'text-orange', bg: 'bg-orange/8',  ring: 'ring-orange/15' },
+            { icon: Shield, label: 'Verified',   sub: 'neighbours',     color: 'text-violet', bg: 'bg-violet/8',  ring: 'ring-violet/15' },
+            { icon: Star,   label: 'Rated',      sub: 'by customers',   color: 'text-amber',  bg: 'bg-amber/8',   ring: 'ring-amber/15'  },
+          ].map((item, i) => (
+            <div key={i} className={`flex flex-col items-center gap-2 bg-surface rounded-2xl p-4 shadow-card ring-1 ${item.ring}`}>
+              <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center`}>
+                <item.icon size={18} className={item.color} />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-bold text-ink">{item.label}</p>
+                <p className="text-xs text-muted">{item.sub}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── What is InkNeighbour ────────────────────────────── */}
+      <section className="py-16 px-4 sm:px-6 bg-bg">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="inline-block bg-violet/10 text-violet text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4 border border-violet/15">What we do</span>
+            <h2 className="font-display text-3xl sm:text-4xl font-black text-ink mb-4">Your neighbourhood<br className="hidden sm:block" /> print network</h2>
+            <p className="text-muted text-lg max-w-2xl mx-auto leading-relaxed">
+              InkNeighbour connects you with nearby print providers — home printer owners in your building or local print shops — for fast, on-demand printing delivered to you.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-4">
             {[
-              { icon: Zap,    label: 'Same-day',        sub: 'delivery',        ring: 'ring-orange/20',  bg: 'bg-orange/8',   iconC: 'text-orange'  },
-              { icon: Shield, label: 'Trusted',         sub: 'neighbour',       ring: 'ring-violet/20',  bg: 'bg-violet/8',   iconC: 'text-violet'  },
-              { icon: Star,   label: 'Resident',        sub: 'rated',           ring: 'ring-amber/20',   bg: 'bg-amber/8',    iconC: 'text-amber'   }
+              { icon: FileText, color: 'text-violet', bg: 'bg-violet/10', border: 'border-violet/15', step: '01', title: 'You upload',   desc: 'Share your PDF or image from your phone. No USB, no email, no hassle.' },
+              { icon: Printer,  color: 'text-orange', bg: 'bg-orange/10', border: 'border-orange/15', step: '02', title: 'They print',   desc: 'A neighbour or local shop prints your document at their end.' },
+              { icon: Package,  color: 'text-green',  bg: 'bg-green/10',  border: 'border-green/15',  step: '03', title: 'You receive',  desc: 'Delivered to your flat or ready for pickup — tracked in real time.' },
             ].map((item, i) => (
-              <div
-                key={i}
-                className={`flex flex-col items-center gap-2 bg-surface rounded-2xl px-3 py-4 shadow-card border border-border/40 ring-1 ${item.ring}`}
-              >
-                <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center`}>
-                  <item.icon size={18} className={item.iconC} />
+              <div key={i} className={`relative bg-surface rounded-2xl border ${item.border} p-6 overflow-hidden group hover:shadow-card transition-shadow`}>
+                <span className="absolute top-3 right-4 font-display font-black text-5xl text-ink/[0.04] leading-none select-none">{item.step}</span>
+                <div className={`w-12 h-12 rounded-2xl ${item.bg} flex items-center justify-center mb-5`}>
+                  <item.icon size={22} className={item.color} />
                 </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-ink leading-tight">{item.label}</p>
-                  <p className="text-xs text-muted leading-tight">{item.sub}</p>
-                </div>
+                <h3 className="font-display font-bold text-ink text-xl mb-2">{item.title}</h3>
+                <p className="text-muted text-sm leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── How it works ───────────────────────────────────── */}
-      <section className="relative overflow-hidden py-16 sm:py-20">
-        {/* Subtle section background */}
-        <div
-          className="absolute inset-0 opacity-[0.025]"
-          style={{
-            backgroundImage: 'repeating-linear-gradient(0deg, #0A0A0F 0px, #0A0A0F 1px, transparent 1px, transparent 32px), repeating-linear-gradient(90deg, #0A0A0F 0px, #0A0A0F 1px, transparent 1px, transparent 32px)'
-          }}
-        />
-
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6">
-          {/* Section header */}
+      {/* ── Two provider types ──────────────────────────────── */}
+      <section className="py-16 px-4 sm:px-6" style={{ background: 'linear-gradient(180deg, #F4F3FF 0%, #ffffff 100%)' }}>
+        <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <span className="inline-block bg-violet/10 text-violet text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4 border border-violet/20">
-              How it works
-            </span>
-            <h2 className="font-display text-3xl sm:text-4xl font-black text-ink leading-tight">
-              {t('landing.how_title')}
-            </h2>
-            <p className="text-muted text-base mt-3 max-w-sm mx-auto">
-              Three steps. No app download. No signup.
-            </p>
+            <span className="inline-block bg-orange/10 text-orange text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4 border border-orange/15">Two types of providers</span>
+            <h2 className="font-display text-3xl sm:text-4xl font-black text-ink mb-4">Find the right printer for you</h2>
+            <p className="text-muted text-base">Search by pincode — you'll see both.</p>
           </div>
 
-          {/* Steps */}
-          <div className="relative">
-            {/* Desktop connecting dashes */}
-            <div className="hidden sm:block absolute top-[52px] left-[calc(33.3%+8px)] right-[calc(33.3%+8px)] border-t-2 border-dashed border-border z-0" />
-
-            <div className="grid sm:grid-cols-3 gap-5 sm:gap-6">
-              {[
-                {
-                  n: '01',
-                  icon: Search,
-                  title: t('landing.step1_title'),
-                  desc: 'Enter your pincode to discover a printer owner in your building.',
-                  iconBg: 'bg-violet text-white',
-                  numC: 'text-violet/10',
-                  border: 'border-violet/20',
-                  glow: 'bg-violet/5'
-                },
-                {
-                  n: '02',
-                  icon: Upload,
-                  title: t('landing.step2_title'),
-                  desc: 'Share your PDF or image. We detect the page count for you.',
-                  iconBg: 'bg-orange text-white',
-                  numC: 'text-orange/10',
-                  border: 'border-orange/20',
-                  glow: 'bg-orange/5'
-                },
-                {
-                  n: '03',
-                  icon: Package,
-                  title: t('landing.step3_title'),
-                  desc: 'Your neighbour prints and drops it right to your door.',
-                  iconBg: 'bg-green text-white',
-                  numC: 'text-green/10',
-                  border: 'border-green/20',
-                  glow: 'bg-green/5'
-                }
-              ].map((s, i) => (
-                <div
-                  key={i}
-                  className={`relative bg-surface rounded-2xl border ${s.border} shadow-card overflow-hidden group`}
-                >
-                  {/* Background number watermark */}
-                  <span className={`absolute -bottom-4 -right-2 font-display text-[90px] font-black ${s.numC} leading-none select-none pointer-events-none`}>
-                    {s.n}
-                  </span>
-
-                  <div className={`absolute inset-0 ${s.glow} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
-
-                  <div className="relative z-10 p-6 sm:p-7">
-                    {/* Icon circle */}
-                    <div className={`w-[52px] h-[52px] rounded-2xl ${s.iconBg} flex items-center justify-center mb-5 shadow-sm`}>
-                      <s.icon size={22} />
-                    </div>
-                    <h3 className="font-display font-bold text-ink text-[19px] leading-snug mb-2">
-                      {s.title}
-                    </h3>
-                    <p className="text-muted text-base leading-relaxed">{s.desc}</p>
+          <div className="grid sm:grid-cols-2 gap-5">
+            {/* Home printer */}
+            <div className="relative bg-surface rounded-3xl overflow-hidden border border-orange/20 shadow-card">
+              <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(255,107,53,0.08)', transform: 'translate(30%, -30%)' }} />
+              <div className="relative p-7 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(255,107,53,0.15), rgba(255,140,97,0.1))', border: '1px solid rgba(255,107,53,0.2)' }}>
+                    <Home size={22} className="text-orange" />
+                  </div>
+                  <div>
+                    <p className="font-display font-bold text-ink text-xl leading-tight">Home Printer Owner</p>
+                    <p className="text-xs text-orange font-semibold mt-0.5">Same building as you</p>
                   </div>
                 </div>
-              ))}
+                <p className="text-muted text-sm leading-relaxed">Your neighbour has a printer and delivers to your door within the same apartment complex.</p>
+                <ul className="space-y-2.5">
+                  {[
+                    'Delivers to your flat door',
+                    'Typically ₹2–5 per page',
+                    'Best for everyday small jobs',
+                    'Verified building resident',
+                  ].map((pt, i) => (
+                    <li key={i} className="flex items-center gap-2.5 text-sm text-ink">
+                      <div className="w-5 h-5 rounded-full bg-orange/15 flex items-center justify-center shrink-0">
+                        <CheckCircle size={11} className="text-orange" />
+                      </div>
+                      {pt}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
+
+            {/* Print shop */}
+            <div className="relative bg-surface rounded-3xl overflow-hidden border border-violet/20 shadow-card">
+              <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(124,58,237,0.08)', transform: 'translate(30%, -30%)' }} />
+              <div className="relative p-7 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(167,139,250,0.1))', border: '1px solid rgba(124,58,237,0.2)' }}>
+                    <Store size={22} className="text-violet" />
+                  </div>
+                  <div>
+                    <p className="font-display font-bold text-ink text-xl leading-tight">Local Print Shop</p>
+                    <p className="text-xs text-violet font-semibold mt-0.5">Within 1–5 km of you</p>
+                  </div>
+                </div>
+                <p className="text-muted text-sm leading-relaxed">A professional print shop nearby — order online and get delivery or pick up in person.</p>
+                <ul className="space-y-2.5">
+                  {[
+                    'Delivery or walk-in pickup',
+                    'Scanning, binding, lamination',
+                    'Best for bulk or professional jobs',
+                    'GST receipts available',
+                  ].map((pt, i) => (
+                    <li key={i} className="flex items-center gap-2.5 text-sm text-ink">
+                      <div className="w-5 h-5 rounded-full bg-violet/15 flex items-center justify-center shrink-0">
+                        <CheckCircle size={11} className="text-violet" />
+                      </div>
+                      {pt}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 text-center">
+            <form onSubmit={handleFind} className="inline-flex gap-2">
+              <div className="flex gap-2 p-1.5 rounded-2xl border border-border bg-surface shadow-card">
+                <div className="flex items-center gap-2 pl-3">
+                  <MapPin size={15} className="text-orange shrink-0" />
+                  <input
+                    type="text"
+                    value={pincode}
+                    onChange={e => setPincode(e.target.value)}
+                    placeholder="Your pincode"
+                    className="w-32 min-h-[44px] bg-transparent text-ink placeholder:text-muted text-base focus:outline-none"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                  />
+                </div>
+                <button type="submit" className="shrink-0 px-5 rounded-xl text-white font-bold text-sm min-h-[44px] transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(135deg, #FF6B35, #e85d25)' }}>
+                  Search
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </section>
 
-      {/* ── Owner CTA (split layout) ────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16 sm:pb-20">
-        <div className="relative bg-ink rounded-3xl overflow-hidden text-white">
-          {/* Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0d0d20] via-ink2 to-[#1a0e38]" />
-          <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-orange/15 rounded-full blur-[100px] translate-x-1/4 -translate-y-1/4 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-violet/20 rounded-full blur-[80px] -translate-x-1/3 translate-y-1/3 pointer-events-none" />
-          <div
-            className="absolute inset-0 opacity-[0.035]"
-            style={{
-              backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)',
-              backgroundSize: '20px 20px'
-            }}
-          />
+      {/* ── For owners ──────────────────────────────────────── */}
+      <section className="py-16 px-4 sm:px-6" style={{ background: 'linear-gradient(160deg, #0d0d20 0%, #1A1A2E 60%, #1a0e38 100%)' }}>
+        <div className="max-w-4xl mx-auto">
 
-          <div className="relative z-10 grid lg:grid-cols-2 gap-0">
+          <div className="text-center mb-12">
+            <span className="inline-block bg-orange/15 text-orange text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4 border border-orange/20">For owners</span>
+            <h2 className="font-display text-3xl sm:text-4xl font-black text-white mb-4">
+              Have a printer?<br />
+              <span style={{ background: 'linear-gradient(90deg, #FF6B35, #FF8C61)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                Start earning from it.
+              </span>
+            </h2>
+            <p className="text-white/50 text-lg max-w-md mx-auto">List your printer for free and start accepting print jobs from people nearby.</p>
+          </div>
 
-            {/* Left: content */}
-            <div className="px-8 sm:px-12 py-12 sm:py-16 flex flex-col justify-center">
-              <div className="inline-flex items-center gap-2 bg-orange/15 border border-orange/25 px-3 py-1.5 rounded-full text-sm font-bold text-orange mb-6 w-fit">
-                <Printer size={14} />
-                For printer owners
-              </div>
-
-              <h2 className="font-display text-3xl sm:text-4xl font-black leading-tight mb-4">
-                {t('landing.owners_title')}
-                <br />
-                <span className="text-orange">Earn from every page.</span>
-              </h2>
-
-              <p className="text-white/65 text-lg leading-relaxed mb-8 max-w-sm">
-                {t('landing.owners_desc')}
-              </p>
-
-              {/* Benefits list */}
-              <ul className="space-y-3 mb-8">
-                {[
-                  'Free to set up — no upfront cost',
-                  'You set your own rates',
-                  'Earn ₹2–₹5 per page printed'
-                ].map((b, i) => (
-                  <li key={i} className="flex items-center gap-3 text-white/80 text-base">
-                    <CheckCircle size={17} className="text-green shrink-0" />
-                    {b}
-                  </li>
-                ))}
-              </ul>
-
-              <div className="flex flex-wrap items-center gap-4">
+          <div className="grid sm:grid-cols-2 gap-5 mb-8">
+            {/* Home owner */}
+            <div className="relative rounded-3xl overflow-hidden border border-white/[0.08] p-7 space-y-5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)' }}>
+              <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,107,53,0.08), transparent 60%)' }} />
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,107,53,0.15)', border: '1px solid rgba(255,107,53,0.25)' }}>
+                    <Home size={22} className="text-orange" />
+                  </div>
+                  <div>
+                    <p className="font-display font-bold text-white text-xl leading-tight">Home Printer Owner</p>
+                    <p className="text-xs text-orange font-semibold mt-0.5">No business needed</p>
+                  </div>
+                </div>
+                <p className="text-white/50 text-sm leading-relaxed mb-5">You have a home printer. Register your building, set your rates, and earn from neighbours who need documents printed.</p>
+                <ul className="space-y-2 mb-6">
+                  {['Free to register', 'Set your own price per page', 'Cover your ink costs — and more'].map((pt, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm text-white/70">
+                      <CheckCircle size={13} className="text-green shrink-0" />
+                      {pt}
+                    </li>
+                  ))}
+                </ul>
                 <Link to="/register">
-                  <button className="inline-flex items-center gap-2.5 bg-orange hover:bg-orange/90 active:scale-[0.97] text-white font-bold text-lg px-8 py-4 rounded-2xl transition-all shadow-orange min-h-[52px] w-fit">
-                    Set up your shop
+                  <button className="w-full min-h-[48px] rounded-xl font-bold text-sm text-white transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(135deg, #FF6B35, #e85d25)' }}>
+                    Register as Home Owner →
                   </button>
-                </Link>
-                <Link
-                  to="/login"
-                  className="text-white/60 hover:text-white text-base font-medium transition-colors min-h-[44px] flex items-center"
-                >
-                  Already registered? Login →
                 </Link>
               </div>
             </div>
 
-            {/* Right: earnings visual */}
-            <div className="hidden lg:flex items-center justify-center px-8 py-12 relative">
-              {/* Mock earnings card */}
-              <div className="w-full max-w-[280px] relative">
-                {/* Floating card */}
-                <div
-                  className="bg-white/[0.06] border border-white/[0.1] rounded-2xl p-6 backdrop-blur-sm"
-                  style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)' }}
-                >
-                  <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-4">This month</p>
-                  <div className="flex items-end gap-2 mb-5">
-                    <span className="font-display text-[44px] font-black text-white leading-none">₹2,340</span>
-                    <span className="text-green text-sm font-bold mb-1.5">+18%</span>
+            {/* Print shop */}
+            <div className="relative rounded-3xl overflow-hidden border border-white/[0.08] p-7 space-y-5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)' }}>
+              <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at top right, rgba(124,58,237,0.10), transparent 60%)' }} />
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.25)' }}>
+                    <Store size={22} className="text-violet2" />
                   </div>
-
-                  {/* Mini bar chart */}
-                  <div className="flex items-end gap-1.5 h-[48px] mb-4">
-                    {[40, 65, 45, 80, 55, 90, 70].map((h, i) => (
-                      <div
-                        key={i}
-                        className="flex-1 rounded-sm"
-                        style={{
-                          height: `${h}%`,
-                          background: i === 5
-                            ? 'rgba(255,107,53,0.9)'
-                            : 'rgba(255,255,255,0.12)'
-                        }}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="border-t border-white/10 pt-4 space-y-2">
-                    {[
-                      { label: 'Pages printed', val: '312' },
-                      { label: 'Print jobs',    val: '47' }
-                    ].map((row, i) => (
-                      <div key={i} className="flex justify-between text-sm">
-                        <span className="text-white/45">{row.label}</span>
-                        <span className="text-white/90 font-semibold">{row.val}</span>
-                      </div>
-                    ))}
+                  <div>
+                    <p className="font-display font-bold text-white text-xl leading-tight">Print Shop</p>
+                    <p className="text-xs text-violet2 font-semibold mt-0.5">Grow beyond walk-ins</p>
                   </div>
                 </div>
+                <p className="text-white/50 text-sm leading-relaxed mb-5">You run a print business. Accept online orders, showcase your services, and reach customers within 1–5 km who can't walk in.</p>
+                <ul className="space-y-2 mb-6">
+                  {['Free to list your shop', 'Distance-based delivery pricing', 'Full service menu display'].map((pt, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm text-white/70">
+                      <CheckCircle size={13} className="text-green shrink-0" />
+                      {pt}
+                    </li>
+                  ))}
+                </ul>
+                <Link to="/register">
+                  <button className="w-full min-h-[48px] rounded-xl font-bold text-sm text-white bg-violet hover:bg-violet/90 transition-colors">
+                    Register your Shop →
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
 
-                {/* Floating badge */}
-                <div
-                  className="absolute -top-3 -right-3 bg-green text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5"
-                  style={{ boxShadow: '0 4px 12px rgba(16,185,129,0.5)' }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-pulse" />
-                  Shop is live
-                </div>
+          {/* Value strip */}
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-white/[0.08] p-4 flex items-start gap-3" style={{ background: 'rgba(255,107,53,0.06)' }}>
+              <span className="text-2xl shrink-0">🖨️</span>
+              <div>
+                <p className="font-bold text-white text-sm">Your printer already runs. Let it pay for itself.</p>
+                <p className="text-white/40 text-xs mt-1 leading-relaxed">Stop buying ink out of pocket. Your neighbours cover your cartridge costs — and you pocket the rest.</p>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/[0.08] p-4 flex items-start gap-3" style={{ background: 'rgba(124,58,237,0.06)' }}>
+              <span className="text-2xl shrink-0">📦</span>
+              <div>
+                <p className="font-bold text-white text-sm">Every customer who can't walk in is a lost order.</p>
+                <p className="text-white/40 text-xs mt-1 leading-relaxed">InkNeighbour puts your shop in front of nearby customers who need printing but won't travel for it.</p>
               </div>
             </div>
           </div>
@@ -392,28 +383,20 @@ export default function Landing() {
       </section>
 
       {/* ── Footer ─────────────────────────────────────────── */}
-      <footer className="bg-ink text-white/40 border-t border-white/[0.06]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-center space-y-3">
-          <p className="font-display font-black text-xl text-white/90 tracking-tight">
+      <footer className="bg-ink border-t border-white/[0.06]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 text-center space-y-4">
+          <p className="font-display font-black text-2xl text-white tracking-tight">
             Ink<span className="text-orange">Neighbour</span>
           </p>
-          <p className="text-xs text-white/30 font-medium">Print it. Drop it. Done.</p>
-          <p className="text-xs text-white/20">© {new Date().getFullYear()} InkNeighbour. All rights reserved.</p>
-          <p className="text-[13px]">
-            <a
-              href={`https://wa.me/${import.meta.env.VITE_CONTACT_WHATSAPP}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 hover:text-white transition-colors group"
-            >
-              <MessageCircle size={13} className="group-hover:text-green transition-colors" />
-              Contact us
-            </a>
-            <span className="mx-2 opacity-30">·</span>
-            <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-            <span className="mx-2 opacity-30">·</span>
-            <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
-          </p>
+          <p className="text-white/30 text-sm font-medium tracking-widest uppercase">Print it. Drop it. Done.</p>
+          <div className="flex items-center justify-center gap-3 text-sm text-white/30 pt-2">
+            <a href={`https://wa.me/${import.meta.env.VITE_CONTACT_WHATSAPP}`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Contact us</a>
+            <span>·</span>
+            <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <span>·</span>
+            <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
+          </div>
+          <p className="text-white/15 text-xs">© {new Date().getFullYear()} InkNeighbour. All rights reserved.</p>
         </div>
       </footer>
     </div>

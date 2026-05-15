@@ -19,7 +19,9 @@
       "mcp__plugin_supabase_supabase__get_project_url",
       "Bash(npx playwright *)",
       "Bash(wait)",
-      "Bash(node screenshots/playwright-run.mjs)"
+      "Bash(node screenshots/playwright-run.mjs)",
+      "Bash(supabase db *)",
+      "Bash(npm install *)"
     ]
   }
 }

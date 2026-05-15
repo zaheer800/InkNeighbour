@@ -103,19 +103,46 @@ export default function DashboardJobs() {
           return
         }
 
-        const { error } = await supabase.from('owners').insert({
-          user_id:      user.id,
-          name:         p.name,
-          phone:        p.phone,
-          society_id:   societyId,
-          shop_name:    p.shop_name,
-          bw_rate:      p.bw_rate,
-          color_rate:   p.color_rate,
-          delivery_fee: p.delivery_fee,
-          upi_id:       p.upi_id,
-          accept_cash:  p.accept_cash,
-          country_code: p.country_code,
-        })
+        const isShop = p.provider_type === 'shop'
+        const ownerRow = isShop
+          ? {
+              user_id:         user.id,
+              provider_type:   'shop',
+              slug:            p.slug || null,
+              name:            p.name,
+              phone:           p.phone,
+              shop_name:       p.shop_name,
+              shop_address:    p.shop_address,
+              gst_number:      p.gst_number,
+              locality:        p.locality,
+              landmark:        p.landmark,
+              lat:             p.lat,
+              lng:             p.lng,
+              bw_rate:         p.bw_rate,
+              color_rate:      p.color_rate,
+              upi_id:          p.upi_id,
+              accept_cash:     p.accept_cash,
+              country_code:    p.country_code,
+              max_active_jobs: p.max_active_jobs,
+            }
+          : {
+              user_id:         user.id,
+              provider_type:   'home',
+              name:            p.name,
+              phone:           p.phone,
+              flat_number:     p.flat_number,
+              society_id:      societyId,
+              shop_name:       p.shop_name,
+              bw_rate:         p.bw_rate,
+              color_rate:      p.color_rate,
+              delivery_fee:    p.delivery_fee,
+              upi_id:          p.upi_id,
+              accept_cash:     p.accept_cash,
+              country_code:    p.country_code,
+              max_active_jobs: p.max_active_jobs,
+            }
+
+        const { data: newOwner, error } = await supabase.from('owners').insert(ownerRow).select('id').single()
         if (error?.code === '23505') {
           localStorage.removeItem('reg_pending')
           if (error.message?.includes('phone')) {
@@ -129,13 +156,28 @@ export default function DashboardJobs() {
           window.location.replace('/register')
           return
         }
-        if (!error) {
+        if (!error && newOwner) {
+          // Print shop: insert delivery tiers, seed service menu, add schedules
+          if (isShop) {
+            const tiers = (p.delivery_tiers || [])
+              .filter(t => parseFloat(t.max_km) > 0)
+              .map(t => ({ owner_id: newOwner.id, max_km: parseFloat(t.max_km), fee: Math.round(parseFloat(t.fee) * 100) }))
+            if (tiers.length > 0) await supabase.from('delivery_fee_tiers').insert(tiers)
+
+            await supabase.rpc('seed_service_menu', { p_owner_id: newOwner.id })
+
+            const schedules = (p.operating_hours || [])
+              .map((h, dow) => h.enabled ? { owner_id: newOwner.id, day_of_week: dow, start_time: h.start + ':00', end_time: h.end + ':00' } : null)
+              .filter(Boolean)
+            if (schedules.length > 0) await supabase.from('availability_schedules').insert(schedules)
+          }
+
           localStorage.removeItem('reg_pending')
           await supabase.functions.invoke('notify-admin', {
             body: {
               owner_name:   p.name,
               shop_name:    p.shop_name,
-              society_name: p.societyName,
+              society_name: p.societyName || p.locality,
               email:        user.email,
               phone:        p.phone,
               admin_url:    `${window.location.origin}/admin`,
@@ -191,7 +233,7 @@ export default function DashboardJobs() {
     ? jobs.filter(j => DELIVERED_STATUSES.includes(j.status))
     : jobs.filter(j => j.status === activeTab)
 
-  const shopSlug = owner?.societies?.slug
+  const shopSlug = owner?.slug || owner?.societies?.slug || ''
   const shopUrl = shopSlug ? `${window.location.origin}/${shopSlug}` : ''
 
   function handleToggleClick() {
@@ -641,7 +683,7 @@ export default function DashboardJobs() {
                         <SLACountdown deadline={job.sla_deadline} />
                       </div>
                     )}
-                    <JobCard job={job} onRefresh={fetchJobs} shopSlug={shopSlug} />
+                    <JobCard job={job} onRefresh={fetchJobs} shopSlug={shopSlug} deliveryTiers={owner?.delivery_fee_tiers || []} />
                   </div>
                 ))}
               </div>

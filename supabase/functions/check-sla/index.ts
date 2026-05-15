@@ -84,6 +84,13 @@ Deno.serve(async (_req) => {
           .update({ status: 'cancelled' })
           .eq('id', job.id)
 
+        // Record missed job for reliability scoring and audit
+        if (job.owner_id) {
+          await supabase
+            .from('missed_jobs')
+            .insert({ job_id: job.id, owner_id: job.owner_id, reason: 'sla_expired' })
+        }
+
         // Delete file from storage
         if (job.file_path) {
           await supabase.storage
