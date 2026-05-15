@@ -111,7 +111,7 @@ export default function ProviderCard({ owner, slug, backHref, isOpen }) {
         className="block pt-1"
         onClick={() => backHref && sessionStorage.setItem('find_back', backHref)}
       >
-        <Button className="w-full">{t('find.order_cta')}</Button>
+        <Button className="w-full">{isShop ? t('find.order_cta') : t('find.order_home_cta')}</Button>
       </Link>
     </div>
   )

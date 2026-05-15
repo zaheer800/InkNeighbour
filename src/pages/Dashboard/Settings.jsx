@@ -12,8 +12,6 @@ import AppNav from '../../components/AppNav'
 import DashboardNav from '../../components/DashboardNav'
 import ShopLocationMap from '../../components/ShopLocationMap'
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
 const SERVICE_LABELS = {
   scan:           'Scanning',
   photocopy:      'Photocopying',
@@ -38,9 +36,6 @@ export default function DashboardSettings() {
   const [services, setServices]     = useState([])
   const [savingServices, setSavingServices] = useState(false)
 
-  // Print shop: operating hours state
-  const [hours, setHours]           = useState(null)
-  const [savingHours, setSavingHours] = useState(false)
 
   // Populate form when owner loads
   useEffect(() => {
@@ -70,30 +65,12 @@ export default function DashboardSettings() {
       // Load service menu
       supabase
         .from('service_menu')
-        .select('id, service_code, is_enabled, display_price')
+        .select('id, owner_id, service_code, is_enabled, display_price')
         .eq('owner_id', owner.id)
         .then(({ data }) => {
           setServices(data || [])
         })
 
-      // Load operating hours
-      supabase
-        .from('availability_schedules')
-        .select('day_of_week, start_time, end_time')
-        .eq('owner_id', owner.id)
-        .then(({ data }) => {
-          const base = Array.from({ length: 7 }, (_, i) => ({
-            dow: i, enabled: false, start: '09:00', end: '18:00'
-          }))
-          if (data) {
-            data.forEach(row => {
-              base[row.day_of_week].enabled = true
-              base[row.day_of_week].start   = (row.start_time || '09:00:00').slice(0, 5)
-              base[row.day_of_week].end     = (row.end_time   || '18:00:00').slice(0, 5)
-            })
-          }
-          setHours(base)
-        })
     }
   }, [owner])
 
@@ -140,6 +117,8 @@ export default function DashboardSettings() {
     setSavingServices(true)
     const updates = services.map(svc => ({
       id:            svc.id,
+      owner_id:      svc.owner_id,
+      service_code:  svc.service_code,
       is_enabled:    svc.is_enabled,
       display_price: svc.display_price?.trim() || null,
     }))
@@ -157,32 +136,6 @@ export default function DashboardSettings() {
     setServices(prev => prev.map(s =>
       s.service_code === serviceCode ? { ...s, [field]: value } : s
     ))
-  }
-
-  // ── Save operating hours ─────────────────────────────────────────────────
-  async function handleSaveHours() {
-    if (!owner || !hours) return
-    setSavingHours(true)
-
-    // Delete existing schedules and re-insert enabled ones
-    await supabase.from('availability_schedules').delete().eq('owner_id', owner.id)
-
-    const rows = hours
-      .filter(h => h.enabled)
-      .map(h => ({
-        owner_id:    owner.id,
-        day_of_week: h.dow,
-        start_time:  h.start + ':00',
-        end_time:    h.end   + ':00',
-      }))
-
-    if (rows.length > 0) {
-      const { error } = await supabase.from('availability_schedules').insert(rows)
-      if (error) { toast.error(t('errors.network')); setSavingHours(false); return }
-    }
-
-    setSavingHours(false)
-    toast.success(t('settings.saved'))
   }
 
   // ── Change password ──────────────────────────────────────────────────────
@@ -407,54 +360,6 @@ export default function DashboardSettings() {
           </section>
         )}
 
-        {/* ── Operating hours (print shop only) ────────────────────────── */}
-        {isShop && hours && (
-          <section className="bg-surface rounded-xl shadow-card p-5 space-y-4">
-            <div>
-              <h2 className="font-bold text-lg text-ink">{t('settings.operating_hours')}</h2>
-              <p className="text-sm text-muted mt-1">{t('settings.operating_hours_hint')}</p>
-            </div>
-
-            <div className="space-y-2">
-              {hours.map((h, dow) => (
-                <div key={dow} className="flex items-center gap-3 py-1">
-                  <label className="flex items-center gap-2 w-16 cursor-pointer flex-shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={h.enabled}
-                      onChange={e => setHours(prev => prev.map((x, i) => i === dow ? { ...x, enabled: e.target.checked } : x))}
-                      className="w-5 h-5 rounded accent-violet"
-                    />
-                    <span className="text-sm font-medium text-ink">{DAY_NAMES[dow]}</span>
-                  </label>
-                  {h.enabled ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <input
-                        type="time"
-                        value={h.start}
-                        onChange={e => setHours(prev => prev.map((x, i) => i === dow ? { ...x, start: e.target.value } : x))}
-                        className="border border-border rounded-lg px-2 py-1.5 text-sm text-ink bg-bg focus:outline-none focus:ring-2 focus:ring-violet/40 min-h-[40px]"
-                      />
-                      <span className="text-muted text-sm">–</span>
-                      <input
-                        type="time"
-                        value={h.end}
-                        onChange={e => setHours(prev => prev.map((x, i) => i === dow ? { ...x, end: e.target.value } : x))}
-                        className="border border-border rounded-lg px-2 py-1.5 text-sm text-ink bg-bg focus:outline-none focus:ring-2 focus:ring-violet/40 min-h-[40px]"
-                      />
-                    </div>
-                  ) : (
-                    <span className="text-sm text-muted italic">Closed</span>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <Button onClick={handleSaveHours} loading={savingHours} variant="secondary" size="sm" className="w-full">
-              {t('settings.save_hours')}
-            </Button>
-          </section>
-        )}
 
         {/* ── Security ──────────────────────────────────────────────────── */}
         <section className="bg-surface rounded-xl shadow-card p-5 space-y-4">

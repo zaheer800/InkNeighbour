@@ -55,7 +55,7 @@ export default function ShopPage() {
     customer_name: '', customer_flat: '', customer_phone: '',
     file: null, pageCount: null, fileName: '',
     print_type: 'bw', paper_size: 'A4', copies: 1, sides: 'single',
-    notes: '', payment_method: ''
+    notes: '', payment_method: '',
   })
   const [errors, setErrors] = useState({})
 
@@ -155,8 +155,8 @@ export default function ShopPage() {
   const ratePerPage    = getRatePerPage(form.print_type, owner)
   const pages          = form.pageCount || 1
 
-  // For print shops, compute delivery fee from tiers based on a flat assumption
-  // (the shop page shows estimated price; actual is confirmed by owner).
+  // For print shops with tiers, delivery fee is confirmed by the owner on accept.
+  // Show minimum tier as estimate so total isn't misleading.
   const effectiveDeliveryFee = isShop
     ? (owner.delivery_fee_tiers?.length
         ? Math.min(...owner.delivery_fee_tiers.map(t => t.fee))
@@ -226,6 +226,7 @@ export default function ShopPage() {
     setForm(f => ({ ...f, [field]: value }))
     setErrors(e => ({ ...e, [field]: undefined }))
   }
+
 
   function validateStep() {
     if (step === 0) {
@@ -482,7 +483,19 @@ export default function ShopPage() {
           {step === 0 && (
             <>
               <Input label={t('shop.name_label')} value={form.customer_name} onChange={e => setField('customer_name', e.target.value)} error={errors.customer_name} placeholder="Your full name" required autoFocus />
-              <Input label={`${country.flat_label} number`} value={form.customer_flat} onChange={e => setField('customer_flat', e.target.value)} error={errors.customer_flat} placeholder="e.g. B-302" required />
+              {isShop ? (
+                <Input
+                  label="Delivery address"
+                  value={form.customer_flat}
+                  onChange={e => setField('customer_flat', e.target.value)}
+                  error={errors.customer_flat}
+                  placeholder="House / flat no., street, area"
+                  hint="The shop will deliver to this address"
+                  required
+                />
+              ) : (
+                <Input label={`${country.flat_label} number`} value={form.customer_flat} onChange={e => setField('customer_flat', e.target.value)} error={errors.customer_flat} placeholder="e.g. B-302" required />
+              )}
               <Input label={t('shop.phone_label')} type="tel" value={form.customer_phone} onChange={e => setField('customer_phone', e.target.value)} error={errors.customer_phone} placeholder="For delivery updates" required />
             </>
           )}
@@ -622,9 +635,9 @@ export default function ShopPage() {
               />
 
               {isShop && owner.delivery_fee_tiers?.length > 0 && (
-                <p className="text-xs text-muted text-center">
-                  {t('shop.delivery_fee_estimated')}
-                </p>
+                <div className="bg-amber/10 border border-amber/20 rounded-xl px-4 py-3 text-sm text-amber leading-snug">
+                  Delivery fee is based on your distance and will be confirmed by the shop when they accept your order.
+                </div>
               )}
 
               {paymentMethods.length > 1 && (

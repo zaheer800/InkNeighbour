@@ -74,7 +74,7 @@ export default function DashboardEarnings() {
     else motivationMsg = t('earnings.loss_msg')
   }
 
-  const shopSlug = owner?.societies?.slug
+  const shopSlug = owner?.slug || owner?.societies?.slug || ''
   const appUrl = window.location.origin
   const shopUrl = shopSlug ? `${appUrl}/${shopSlug}` : ''
 

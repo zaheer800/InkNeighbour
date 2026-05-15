@@ -171,22 +171,22 @@ export default function Find() {
         {!loading && allResults.length > 0 && (
           <div className="flex items-center gap-2">
             {/* Filter pills */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none flex-1 -ml-0">
+            <div className="flex gap-2 flex-1">
               {FILTERS.map(f => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
                   className={[
-                    'flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-colors min-h-[40px]',
+                    'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold transition-colors min-h-[40px]',
                     filter === f
                       ? 'bg-violet text-white'
                       : 'bg-surface text-muted border border-border hover:border-violet/40'
                   ].join(' ')}
                 >
-                  {f === 'home' && <Home  size={14} />}
-                  {f === 'shop' && <Store size={14} />}
-                  {f === 'all'  && <Filter size={14} />}
-                  {t(`find.filter_${f}`)}
+                  {f === 'home' && <Home  size={13} />}
+                  {f === 'shop' && <Store size={13} />}
+                  {f === 'all'  && <Filter size={13} />}
+                  {t(`find.filter_short_${f}`)}
                 </button>
               ))}
             </div>
@@ -197,23 +197,21 @@ export default function Find() {
                 onClick={() => setViewMode('list')}
                 title={t('find.view_list')}
                 className={[
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors min-h-[36px]',
+                  'flex items-center justify-center px-2.5 rounded-lg transition-colors min-h-[36px] min-w-[36px]',
                   viewMode === 'list' ? 'bg-violet text-white' : 'text-muted hover:text-ink'
                 ].join(' ')}
               >
                 <List size={15} />
-                <span className="hidden sm:inline">{t('find.view_list')}</span>
               </button>
               <button
                 onClick={() => setViewMode('map')}
                 title={t('find.view_map')}
                 className={[
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors min-h-[36px]',
+                  'flex items-center justify-center px-2.5 rounded-lg transition-colors min-h-[36px] min-w-[36px]',
                   viewMode === 'map' ? 'bg-violet text-white' : 'text-muted hover:text-ink'
                 ].join(' ')}
               >
                 <MapIcon size={15} />
-                <span className="hidden sm:inline">{t('find.view_map')}</span>
               </button>
             </div>
           </div>
@@ -304,9 +302,10 @@ export default function Find() {
                             <Link
                               to={`/${owner._slug}`}
                               onClick={() => sessionStorage.setItem('find_back', backHref)}
-                              className="block mt-2 bg-violet text-white text-xs font-bold text-center py-2 px-3 rounded-lg hover:bg-violet/90 transition-colors"
+                              className="flex items-center justify-between mt-2 pt-2 border-t border-border text-xs font-semibold text-violet hover:text-violet/70 transition-colors"
                             >
-                              {t('find.order_cta')}
+                              <span>{isShop ? t('find.order_cta') : t('find.order_home_cta')}</span>
+                              <span>→</span>
                             </Link>
                           )}
                         </div>

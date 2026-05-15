@@ -125,35 +125,37 @@ export default function ShopLocationMap({ lat, lng, onChange, error }) {
       {/* Search bar */}
       <div className="relative">
         <div className={`flex rounded-xl border overflow-hidden focus-within:ring-2 focus-within:ring-violet/40 focus-within:border-violet ${error ? 'border-red' : 'border-border'}`}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && geocode()}
-            placeholder="Search address to drop a pin…"
-            className="flex-1 min-h-[52px] px-4 text-base text-ink bg-surface focus:outline-none placeholder:text-muted"
-            aria-label="Search address"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={clearSearch}
-              className="px-2 text-muted hover:text-ink transition-colors flex items-center"
-              aria-label="Clear search"
-            >
-              <X size={16} />
-            </button>
-          )}
+          <div className="relative flex-1 flex items-center">
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && geocode()}
+              placeholder="Search address to drop a pin…"
+              className={`w-full min-h-[52px] pl-4 text-base text-ink bg-surface focus:outline-none placeholder:text-muted ${query ? 'pr-8' : 'pr-4'}`}
+              aria-label="Search address"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="absolute right-2 text-muted hover:text-ink transition-colors p-1"
+                aria-label="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={geocode}
             disabled={searching || !query.trim()}
-            className="px-4 bg-violet text-white min-h-[52px] flex items-center gap-2 text-sm font-semibold hover:bg-violet/90 transition-colors disabled:opacity-50"
+            className="shrink-0 whitespace-nowrap px-4 bg-violet text-white min-h-[52px] flex items-center gap-2 text-sm font-semibold hover:bg-violet/90 transition-colors disabled:opacity-50"
             aria-label="Search"
           >
             <Search size={16} />
-            {searching ? 'Searching…' : 'Search'}
+            <span className="hidden sm:inline">{searching ? 'Searching…' : 'Search'}</span>
           </button>
         </div>
 

@@ -6,12 +6,13 @@ import Button from './ui/Button'
 import { formatCurrency } from '../lib/countries'
 import { useJobs } from '../hooks/useJobs'
 
-export default function JobCard({ job, onRefresh, shopSlug }) {
+export default function JobCard({ job, onRefresh, shopSlug, deliveryTiers = [] }) {
   const { t } = useTranslation()
   const { acceptJob, markPrinting, markDelivered, cancelJob, getSignedUrl } = useJobs()
   const [downloading, setDownloading] = useState(false)
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState(false)
+  const [selectedTierKm, setSelectedTierKm] = useState(null)
 
   // Persisted per tab-session so navigating away and back doesn't reset it
   const sessionKey = `downloaded_${job.id}`
@@ -165,14 +166,57 @@ export default function JobCard({ job, onRefresh, shopSlug }) {
               <Clock size={14} className="shrink-0" /> Timer expired — this order will be auto-cancelled on next refresh.
             </div>
           ) : (
-            <>
-              <Button size="sm" onClick={() => handleAction(acceptJob)}>
-                <CheckCircle size={15} /> Accept
-              </Button>
-              <Button variant="danger" size="sm" onClick={() => handleAction(cancelJob)}>
-                <XCircle size={15} /> Decline
-              </Button>
-            </>
+            <div className="flex-1 space-y-3">
+              {deliveryTiers.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wide">Confirm delivery fee</p>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {[...deliveryTiers].sort((a, b) => a.max_km - b.max_km).map(tier => (
+                      <button
+                        key={tier.max_km}
+                        type="button"
+                        onClick={() => setSelectedTierKm(tier.max_km)}
+                        className={[
+                          'flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-colors min-h-[44px]',
+                          selectedTierKm === tier.max_km
+                            ? 'border-violet bg-violet/5 text-ink font-semibold'
+                            : 'border-border bg-bg text-ink hover:border-violet/40'
+                        ].join(' ')}
+                      >
+                        <span>Up to {tier.max_km} km</span>
+                        <span className={selectedTierKm === tier.max_km ? 'text-violet font-bold' : 'text-muted'}>
+                          {tier.fee === 0 ? 'Free' : formatCurrency(tier.fee, job.country_code || 'IN')}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedTierKm == null && (
+                    <p className="text-xs text-amber font-medium">Select delivery distance to accept</p>
+                  )}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={deliveryTiers.length > 0 && selectedTierKm == null}
+                  onClick={() => {
+                    if (deliveryTiers.length > 0 && selectedTierKm != null) {
+                      const tier = deliveryTiers.find(t => t.max_km === selectedTierKm)
+                      const printCost = job.total_amount - Math.min(...deliveryTiers.map(t => t.fee))
+                      const confirmedTotal = printCost + (tier?.fee ?? 0)
+                      acceptJob(job.id, confirmedTotal).then(() => onRefresh?.())
+                    } else {
+                      handleAction(acceptJob)
+                    }
+                  }}
+                >
+                  <CheckCircle size={15} /> Accept
+                </Button>
+                <Button variant="danger" size="sm" onClick={() => handleAction(cancelJob)}>
+                  <XCircle size={15} /> Decline
+                </Button>
+              </div>
+            </div>
           )
         )}
         {job.status === 'accepted' && (

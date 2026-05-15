@@ -44,12 +44,16 @@ const TYPES = [
  */
 export default function ProviderTypeSelector({ value, onChange, error }) {
   const { t } = useTranslation()
+  const noneSelected = !value
 
   return (
     <div>
-      <p className="text-base font-semibold text-ink mb-3">
-        {t('register.provider_question')}
-      </p>
+      <div className="mb-3">
+        <p className="text-lg font-bold text-ink">
+          {t('register.provider_question')} <span className="text-red" aria-hidden="true">*</span>
+        </p>
+        <p className="text-sm text-muted mt-0.5">{t('register.provider_question_sub')}</p>
+      </div>
 
       {/* Card grid — stacked on mobile, side by side on sm+ */}
       <div
@@ -76,13 +80,21 @@ export default function ProviderTypeSelector({ value, onChange, error }) {
                   : 'border-border bg-surface hover:border-muted/40 hover:shadow-sm',
               ].join(' ')}
             >
-              {/* Selected checkmark badge */}
-              {selected && (
+              {/* Top-right badge */}
+              {selected ? (
                 <span
-                  className={`absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center ${type.checkBgClass}`}
+                  className={`absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-white ${type.checkBgClass}`}
                   aria-hidden="true"
                 >
-                  <Check size={14} strokeWidth={3} className="text-white" />
+                  <Check size={11} strokeWidth={3} />
+                  Selected
+                </span>
+              ) : noneSelected && (
+                <span
+                  className="absolute top-3 right-3 px-2 py-0.5 rounded-full text-xs font-medium text-muted bg-bg border border-border"
+                  aria-hidden="true"
+                >
+                  Tap to select
                 </span>
               )}
 

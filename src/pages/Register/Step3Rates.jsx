@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Rocket, Plus, X, Clock } from 'lucide-react'
+import { Rocket, Plus, X } from 'lucide-react'
 import AppNav from '../../components/AppNav'
 import { toast } from 'sonner'
 import Button from '../../components/ui/Button'
@@ -10,17 +10,41 @@ import { supabase } from '../../lib/supabase'
 import { makeShopSlug } from '../../lib/slugify'
 import Footer from '../../components/Footer'
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-const DEFAULT_HOURS = [
-  { enabled: false, start: '09:00', end: '21:00' }, // 0 Sun
-  { enabled: true,  start: '09:00', end: '21:00' }, // 1 Mon
-  { enabled: true,  start: '09:00', end: '21:00' }, // 2 Tue
-  { enabled: true,  start: '09:00', end: '21:00' }, // 3 Wed
-  { enabled: true,  start: '09:00', end: '21:00' }, // 4 Thu
-  { enabled: true,  start: '09:00', end: '21:00' }, // 5 Fri
-  { enabled: true,  start: '09:00', end: '14:00' }, // 6 Sat
-]
+function FreeDeliveryToggle({ form, set }) {
+  return (
+    <div className="pt-3 border-t border-border">
+      <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
+        <input
+          type="checkbox"
+          checked={form.free_delivery_enabled}
+          onChange={e => set('free_delivery_enabled', e.target.checked)}
+          className="w-5 h-5 accent-violet"
+        />
+        <span className="text-base font-medium text-ink">Waive delivery fee above a minimum order</span>
+      </label>
+
+      {form.free_delivery_enabled && (
+        <div className="mt-3 ml-8 space-y-1.5">
+          <p className="text-sm text-muted">Minimum order amount for free delivery:</p>
+          <div className="flex items-center gap-2">
+            <span className="text-base font-bold text-ink">₹</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={form.free_delivery_above}
+              onChange={e => set('free_delivery_above', e.target.value)}
+              min="1"
+              step="50"
+              placeholder="500"
+              className="w-32 min-h-[44px] px-3 rounded-xl border border-border text-base text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-violet/40"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const DEFAULT_TIERS = [
   { max_km: '1.0', fee: '15' },
@@ -45,9 +69,10 @@ export default function Step3Rates() {
     upi_id:         '',
     accept_cash:    true,
     max_active_jobs: '3',
+    free_delivery_enabled: false,
+    free_delivery_above:   '500',
     // shop only
     delivery_tiers: DEFAULT_TIERS,
-    hours:          DEFAULT_HOURS,
   })
 
   useEffect(() => {
@@ -113,12 +138,7 @@ export default function Step3Rates() {
     setForm(f => ({ ...f, delivery_tiers: f.delivery_tiers.filter((_, idx) => idx !== i) }))
   }
 
-  function setHour(dow, field, value) {
-    setForm(f => {
-      const hours = f.hours.map((h, i) => i === dow ? { ...h, [field]: value } : h)
-      return { ...f, hours }
-    })
-  }
+
 
   // ── Validation ───────────────────────────────────────────────────────────
   function validate() {
@@ -207,7 +227,10 @@ export default function Step3Rates() {
         societyName:        isShop ? null  : (step2.isNew ? step2.society?.name : null),
         societyPostalCode:  isShop ? null  : (step2.isNew ? step2.postalCode : null),
         flat_number:        isShop ? null  : (step1.flat_number || null),
-        delivery_fee:       isShop ? 0     : Math.round(parseFloat(form.delivery_fee || '0') * 100),
+        delivery_fee:         isShop ? 0 : Math.round(parseFloat(form.delivery_fee || '0') * 100),
+        free_delivery_above:  form.free_delivery_enabled
+                                ? Math.round(parseFloat(form.free_delivery_above || '0') * 100)
+                                : null,
         // Shop-only
         shop_address:    isShop ? (step1.shop_address || null) : null,
         gst_number:      isShop ? (step1.gst_number  || null) : null,
@@ -216,7 +239,6 @@ export default function Step3Rates() {
         lat:             isShop ? step2.lat : null,
         lng:             isShop ? step2.lng : null,
         delivery_tiers:  isShop ? form.delivery_tiers : null,
-        operating_hours: isShop ? form.hours : null,
       }
 
       if (!authData.session) {
@@ -286,23 +308,25 @@ export default function Step3Rates() {
             upi_id:          ownerPayload.upi_id,
             accept_cash:     ownerPayload.accept_cash,
             country_code:    ownerPayload.country_code,
-            max_active_jobs: ownerPayload.max_active_jobs,
+            max_active_jobs:      ownerPayload.max_active_jobs,
+            free_delivery_above:  ownerPayload.free_delivery_above,
           }
         : {
-            user_id:         userId,
-            provider_type:   'home',
-            name:            ownerPayload.name,
-            phone:           ownerPayload.phone,
-            flat_number:     ownerPayload.flat_number,
-            society_id:      societyId,
-            shop_name:       ownerPayload.shop_name,
-            bw_rate:         ownerPayload.bw_rate,
-            color_rate:      ownerPayload.color_rate,
-            delivery_fee:    ownerPayload.delivery_fee,
-            upi_id:          ownerPayload.upi_id,
-            accept_cash:     ownerPayload.accept_cash,
-            country_code:    ownerPayload.country_code,
-            max_active_jobs: ownerPayload.max_active_jobs,
+            user_id:              userId,
+            provider_type:        'home',
+            name:                 ownerPayload.name,
+            phone:                ownerPayload.phone,
+            flat_number:          ownerPayload.flat_number,
+            society_id:           societyId,
+            shop_name:            ownerPayload.shop_name,
+            bw_rate:              ownerPayload.bw_rate,
+            color_rate:           ownerPayload.color_rate,
+            delivery_fee:         ownerPayload.delivery_fee,
+            upi_id:               ownerPayload.upi_id,
+            accept_cash:          ownerPayload.accept_cash,
+            country_code:         ownerPayload.country_code,
+            max_active_jobs:      ownerPayload.max_active_jobs,
+            free_delivery_above:  ownerPayload.free_delivery_above,
           }
 
       const { data: newOwner, error: ownerErr } = await supabase
@@ -330,13 +354,6 @@ export default function Step3Rates() {
         }
 
         await supabase.rpc('seed_service_menu', { p_owner_id: newOwner.id })
-
-        const scheduleRows = form.hours
-          .map((h, dow) => h.enabled ? { owner_id: newOwner.id, day_of_week: dow, start_time: h.start + ':00', end_time: h.end + ':00' } : null)
-          .filter(Boolean)
-        if (scheduleRows.length > 0) {
-          await supabase.from('availability_schedules').insert(scheduleRows)
-        }
       }
 
       await supabase.functions.invoke('notify-admin', {
@@ -427,6 +444,9 @@ export default function Step3Rates() {
                 hint="Set to 0 for free delivery"
               />
             )}
+
+            {/* Free delivery threshold — home owners only (shops have it in delivery tiers card) */}
+            {!isShop && <FreeDeliveryToggle form={form} set={set} />}
           </div>
 
           {/* Delivery tiers — shop only */}
@@ -443,30 +463,30 @@ export default function Step3Rates() {
 
               <div className="space-y-3">
                 {form.delivery_tiers.map((tier, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="text-sm text-muted shrink-0">Up to</span>
+                  <div key={i} className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted shrink-0">Up to</span>
                     <input
                       type="number" inputMode="decimal"
                       value={tier.max_km}
                       onChange={e => setTier(i, 'max_km', e.target.value)}
                       placeholder="km"
                       min="0.1" step="0.5"
-                      className={`w-20 min-h-[44px] px-3 rounded-xl border text-base text-center text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-violet/40 ${errors[`tier_km_${i}`] ? 'border-red' : 'border-border'}`}
+                      className={`w-16 min-h-[44px] px-2 rounded-xl border text-sm text-center text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-violet/40 ${errors[`tier_km_${i}`] ? 'border-red' : 'border-border'}`}
                     />
-                    <span className="text-sm text-muted shrink-0">km → ₹</span>
+                    <span className="text-xs text-muted shrink-0">km · ₹</span>
                     <input
                       type="number" inputMode="decimal"
                       value={tier.fee}
                       onChange={e => setTier(i, 'fee', e.target.value)}
                       placeholder="fee"
                       min="0" step="1"
-                      className={`w-20 min-h-[44px] px-3 rounded-xl border text-base text-center text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-violet/40 ${errors[`tier_fee_${i}`] ? 'border-red' : 'border-border'}`}
+                      className={`w-16 min-h-[44px] px-2 rounded-xl border text-sm text-center text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-violet/40 ${errors[`tier_fee_${i}`] ? 'border-red' : 'border-border'}`}
                     />
                     <button
                       type="button"
                       onClick={() => removeTier(i)}
                       disabled={form.delivery_tiers.length <= 1}
-                      className="text-muted hover:text-red transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-30"
+                      className="text-muted hover:text-red transition-colors min-h-[44px] min-w-[36px] flex items-center justify-center disabled:opacity-30"
                       aria-label="Remove tier"
                     >
                       <X size={16} />
@@ -483,52 +503,8 @@ export default function Step3Rates() {
                 <Plus size={16} />
                 Add distance band
               </button>
-            </div>
-          )}
 
-          {/* Operating hours — shop only */}
-          {isShop && (
-            <div className="bg-surface rounded-xl shadow-card p-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <Clock size={18} className="text-violet" />
-                <h2 className="font-bold text-lg text-ink">Operating hours</h2>
-              </div>
-
-              <div className="space-y-2">
-                {form.hours.map((h, dow) => (
-                  <div key={dow} className="flex items-center gap-3 min-h-[48px]">
-                    <label className="flex items-center gap-2 cursor-pointer w-14 shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={h.enabled}
-                        onChange={e => setHour(dow, 'enabled', e.target.checked)}
-                        className="w-4 h-4 accent-violet"
-                      />
-                      <span className="text-sm font-semibold text-ink">{DAY_NAMES[dow]}</span>
-                    </label>
-
-                    {h.enabled ? (
-                      <div className="flex items-center gap-2 flex-1">
-                        <input
-                          type="time"
-                          value={h.start}
-                          onChange={e => setHour(dow, 'start', e.target.value)}
-                          className="min-h-[40px] px-2 rounded-lg border border-border text-sm text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-violet/40"
-                        />
-                        <span className="text-muted text-sm">–</span>
-                        <input
-                          type="time"
-                          value={h.end}
-                          onChange={e => setHour(dow, 'end', e.target.value)}
-                          className="min-h-[40px] px-2 rounded-lg border border-border text-sm text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-violet/40"
-                        />
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted italic">Closed</span>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <FreeDeliveryToggle form={form} set={set} />
             </div>
           )}
 

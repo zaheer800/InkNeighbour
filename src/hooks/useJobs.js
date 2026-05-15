@@ -87,7 +87,15 @@ export function useJobs() {
     return { data }
   }, [])
 
-  const acceptJob = useCallback((jobId) => updateJobStatus(jobId, 'accepted'), [updateJobStatus])
+  const acceptJob = useCallback(async (jobId, confirmedTotal = null) => {
+    const updates = { status: 'accepted' }
+    if (confirmedTotal != null) updates.total_amount = confirmedTotal
+    const { data, error } = await supabase
+      .from('jobs').update(updates).eq('id', jobId).select().single()
+    if (error) return { error }
+    setJobs(prev => prev.map(j => j.id === jobId ? data : j))
+    return { data }
+  }, [])
   const markPrinting = useCallback((jobId) => updateJobStatus(jobId, 'printing'), [updateJobStatus])
   const markDelivered = useCallback((jobId) => updateJobStatus(jobId, 'feedback_pending'), [updateJobStatus])
   const cancelJob = useCallback((jobId) => updateJobStatus(jobId, 'cancelled'), [updateJobStatus])

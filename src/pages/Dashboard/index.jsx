@@ -233,7 +233,7 @@ export default function DashboardJobs() {
     ? jobs.filter(j => DELIVERED_STATUSES.includes(j.status))
     : jobs.filter(j => j.status === activeTab)
 
-  const shopSlug = owner?.societies?.slug
+  const shopSlug = owner?.slug || owner?.societies?.slug || ''
   const shopUrl = shopSlug ? `${window.location.origin}/${shopSlug}` : ''
 
   function handleToggleClick() {
@@ -683,7 +683,7 @@ export default function DashboardJobs() {
                         <SLACountdown deadline={job.sla_deadline} />
                       </div>
                     )}
-                    <JobCard job={job} onRefresh={fetchJobs} shopSlug={shopSlug} />
+                    <JobCard job={job} onRefresh={fetchJobs} shopSlug={shopSlug} deliveryTiers={owner?.delivery_fee_tiers || []} />
                   </div>
                 ))}
               </div>
