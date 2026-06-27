@@ -20,7 +20,7 @@ export default function Step2Society() {
   const [postalError, setPostalError] = useState('')
 
   // ── Print shop state ─────────────────────────────────────────────────────
-  const [shopForm, setShopForm] = useState({ locality: '', landmark: '', lat: null, lng: null })
+  const [shopForm, setShopForm] = useState({ locality: '', landmark: '', lat: null, lng: null, address: '', location_method: null })
   const [shopErrors, setShopErrors] = useState({})
 
   // Restore from sessionStorage so back-nav keeps state
@@ -37,10 +37,12 @@ export default function Step2Society() {
         if (s2.postalCode) setPostalCode(s2.postalCode)
       } else {
         setShopForm({
-          locality: s2.locality  || '',
-          landmark: s2.landmark  || '',
-          lat:      s2.lat       ?? null,
-          lng:      s2.lng       ?? null,
+          locality:        s2.locality        || '',
+          landmark:        s2.landmark        || '',
+          lat:             s2.lat             ?? null,
+          lng:             s2.lng             ?? null,
+          address:         s2.address         || '',
+          location_method: s2.location_method ?? null,
         })
       }
     }
@@ -60,10 +62,12 @@ export default function Step2Society() {
     if (Object.keys(e).length > 0) { setShopErrors(e); return }
 
     sessionStorage.setItem('reg_step2', JSON.stringify({
-      locality: shopForm.locality.trim(),
-      landmark: shopForm.landmark.trim(),
-      lat:      shopForm.lat,
-      lng:      shopForm.lng,
+      locality:        shopForm.locality.trim(),
+      landmark:        shopForm.landmark.trim(),
+      lat:             shopForm.lat,
+      lng:             shopForm.lng,
+      address:         shopForm.address,
+      location_method: shopForm.location_method,
     }))
     navigate('/register/rates')
   }
@@ -162,9 +166,17 @@ export default function Step2Society() {
               <ShopLocationMap
                 lat={shopForm.lat}
                 lng={shopForm.lng}
-                onChange={({ lat, lng }) => {
-                  setShopForm(f => ({ ...f, lat, lng }))
-                  setShopErrors(e => ({ ...e, map: undefined }))
+                address={shopForm.address}
+                onChange={({ lat, lng, address, locality, location_method }) => {
+                  setShopForm(f => ({
+                    ...f,
+                    lat,
+                    lng,
+                    address,
+                    location_method,
+                    locality:  locality || f.locality,
+                  }))
+                  setShopErrors(e => ({ ...e, map: undefined, locality: undefined }))
                 }}
                 error={shopErrors.map}
               />

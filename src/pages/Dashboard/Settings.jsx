@@ -246,6 +246,7 @@ export default function DashboardSettings() {
             <ShopLocationMap
               lat={form.lat}
               lng={form.lng}
+              address={form.shop_address}
               onChange={({ lat, lng }) => { set('lat', lat); set('lng', lng) }}
             />
           </section>
