@@ -4,8 +4,6 @@ import { MapPin, Search, X, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 const OLA_KEY = import.meta.env.VITE_OLA_MAPS_API_KEY
-const OLA_CLIENT_ID = import.meta.env.VITE_OLA_MAPS_CLIENT_ID
-const OLA_CLIENT_SECRET = import.meta.env.VITE_OLA_MAPS_CLIENT_SECRET
 const OLA_BASE = 'https://api.olamaps.io/places/v1'
 
 function extractLocality(components = []) {
@@ -156,11 +154,7 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
       if (cancelled) return
 
       try {
-        const ola = new OlaMaps({
-          apiKey: OLA_KEY,
-          ...(OLA_CLIENT_ID && { clientId: OLA_CLIENT_ID }),
-          ...(OLA_CLIENT_SECRET && { clientSecret: OLA_CLIENT_SECRET }),
-        })
+        const ola = new OlaMaps({ apiKey: OLA_KEY })
         olaMapsRef.current = ola
 
         // attributionControl:false stops MapLibre's built-in control from calling
