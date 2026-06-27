@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import AppNav from '../../components/AppNav'
 import Footer from '../../components/Footer'
 import ProviderTypeSelector from '../../components/ProviderTypeSelector'
 import { countryOptions, DEFAULT_COUNTRY, COUNTRIES } from '../../lib/countries'
+import { supabase } from '../../lib/supabase'
 
 const DIAL_OPTIONS = Object.values(COUNTRIES).map(c => ({
   countryCode: c.code,
@@ -14,29 +16,39 @@ const DIAL_OPTIONS = Object.values(COUNTRIES).map(c => ({
   label: `${c.phone_prefix} (${c.code})`
 }))
 
+const DEFAULT_FORM = {
+  provider_type: '',
+  name: '', phone: '', phoneDial: DEFAULT_COUNTRY, email: '', password: '',
+  country_code: DEFAULT_COUNTRY,
+  flat_number: '',
+  shop_name: '',
+  gst_number: '',
+}
+
 export default function Step1Details() {
   const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [form, setForm] = useState(() => {
-    // Restore from sessionStorage so back-navigation keeps state
     try {
       const saved = sessionStorage.getItem('reg_step1')
-      if (saved) return JSON.parse(saved)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        // Strip dial prefix from phone if it was stored as the full E.164 number
+        // (happens when the user returns to Step 1 after a phone conflict in Step 3)
+        const prefix = COUNTRIES[parsed.phoneDial || DEFAULT_COUNTRY]?.phone_prefix || ''
+        if (prefix && typeof parsed.phone === 'string' && parsed.phone.startsWith(prefix)) {
+          parsed.phone = parsed.phone.slice(prefix.length)
+        }
+        return parsed
+      }
     } catch {}
-    return {
-      provider_type: '',
-      name: '', phone: '', phoneDial: DEFAULT_COUNTRY, email: '', password: '',
-      country_code: DEFAULT_COUNTRY,
-      flat_number: '',   // home owner only
-      shop_name: '',     // print shop only
-      shop_address: '',  // print shop only
-      gst_number: '',    // print shop only, optional
-    }
+    return DEFAULT_FORM
   })
 
-  const [errors, setErrors] = useState({})
+  const [errors, setErrors]   = useState({})
   const [regError, setRegError] = useState(null)
+  const [checking, setChecking] = useState(false)
 
   useEffect(() => {
     const err = sessionStorage.getItem('reg_error')
@@ -77,21 +89,68 @@ export default function Step1Details() {
 
     if (form.provider_type === 'shop') {
       if (!form.shop_name.trim()) e.shop_name = t('register.validation_required')
-      if (!form.shop_address.trim()) e.shop_address = t('register.validation_required')
     }
 
     return e
   }
 
-  function handleNext() {
+  async function handleNext() {
     const e = validate()
     if (Object.keys(e).length > 0) { setErrors(e); return }
 
-    const prefix = COUNTRIES[form.phoneDial]?.phone_prefix || ''
+    const prefix   = COUNTRIES[form.phoneDial]?.phone_prefix || ''
     const fullPhone = `${prefix}${form.phone.replace(/\s/g, '')}`
 
-    sessionStorage.setItem('reg_step1', JSON.stringify({ ...form, phone: fullPhone }))
-    navigate('/register/society')
+    // If we already created the auth account for this email (e.g., returned to Step 1
+    // after a phone conflict in Step 3), skip the duplicate signUp call.
+    const prevSaved = (() => { try { return JSON.parse(sessionStorage.getItem('reg_step1') || '{}') } catch { return {} } })()
+    if (prevSaved._userId && prevSaved._signedUpEmail === form.email) {
+      sessionStorage.setItem('reg_step1', JSON.stringify({
+        ...form,
+        phone:       fullPhone,
+        _userId:     prevSaved._userId,
+        _hasSession: prevSaved._hasSession,
+        _signedUpEmail: form.email,
+      }))
+      navigate('/register/society')
+      return
+    }
+
+    setChecking(true)
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email:    form.email,
+        password: form.password,
+        options:  { emailRedirectTo: `${window.location.origin}/dashboard` },
+      })
+
+      if (authError) {
+        if (authError.status === 422 || authError.message?.toLowerCase().includes('already registered')) {
+          setErrors(prev => ({ ...prev, email: 'An account with this email already exists. Sign in instead.' }))
+          return
+        }
+        throw authError
+      }
+
+      // Supabase returns identities:[] when email confirmation is on and email is already taken
+      if (authData.user?.identities?.length === 0) {
+        setErrors(prev => ({ ...prev, email: 'An account with this email already exists. Sign in instead.' }))
+        return
+      }
+
+      sessionStorage.setItem('reg_step1', JSON.stringify({
+        ...form,
+        phone:          fullPhone,
+        _userId:        authData.user?.id,
+        _hasSession:    !!authData.session,
+        _signedUpEmail: form.email,
+      }))
+      navigate('/register/society')
+    } catch (err) {
+      toast.error(err.message || t('errors.network'))
+    } finally {
+      setChecking(false)
+    }
   }
 
   const isShop = form.provider_type === 'shop'
@@ -113,7 +172,7 @@ export default function Step1Details() {
         {regError === 'phone_taken' && (
           <div className="bg-red/10 border-b border-red/20 px-4 py-3">
             <p className="text-sm text-red font-medium text-center max-w-lg mx-auto">
-              This phone number is already linked to another shop. Please use a different number.
+              This phone number is already linked to another account. Please use a different number.
             </p>
           </div>
         )}
@@ -253,16 +312,6 @@ export default function Step1Details() {
               />
 
               <Input
-                label={t('register.shop_address_label')}
-                value={form.shop_address}
-                onChange={e => set('shop_address', e.target.value)}
-                error={errors.shop_address}
-                placeholder={t('register.shop_address_placeholder')}
-                required
-                autoComplete="street-address"
-              />
-
-              <Input
                 label={t('register.gst_label')}
                 value={form.gst_number}
                 onChange={e => set('gst_number', e.target.value)}
@@ -273,8 +322,8 @@ export default function Step1Details() {
             </div>
           )}
 
-          <Button onClick={handleNext} className="w-full" size="lg">
-            {t('common.next')}
+          <Button onClick={handleNext} loading={checking} disabled={checking} className="w-full" size="lg">
+            {checking ? 'Checking…' : t('common.next')}
           </Button>
         </div>
       </div>

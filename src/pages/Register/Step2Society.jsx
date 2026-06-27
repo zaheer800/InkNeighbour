@@ -167,9 +167,16 @@ export default function Step2Society() {
                 lat={shopForm.lat}
                 lng={shopForm.lng}
                 address={shopForm.address}
-                onChange={({ lat, lng, address, location_method }) => {
-                  setShopForm(f => ({ ...f, lat, lng, address, location_method }))
-                  setShopErrors(e => ({ ...e, map: undefined }))
+                onChange={({ lat, lng, address, locality, location_method }) => {
+                  setShopForm(f => ({
+                    ...f,
+                    lat,
+                    lng,
+                    address,
+                    location_method,
+                    locality:  locality || f.locality,
+                  }))
+                  setShopErrors(e => ({ ...e, map: undefined, locality: undefined }))
                 }}
                 error={shopErrors.map}
               />

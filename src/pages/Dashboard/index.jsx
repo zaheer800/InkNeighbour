@@ -57,14 +57,19 @@ export default function DashboardJobs() {
   // After email-confirmation redirect: complete pending owner creation
   useEffect(() => {
     if (ownerLoading || owner || autoCompleting) return
-    const raw = localStorage.getItem('reg_pending')
-    if (!raw) return
     async function complete() {
       setAutoCompleting(true)
       try {
-        const p = JSON.parse(raw)
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { setAutoCompleting(false); return }
+
+        // Primary: localStorage (same-device). Fallback: auth user metadata (cross-device).
+        const localRaw = localStorage.getItem('reg_pending')
+        const metaRaw  = user.user_metadata?.reg_pending
+        const raw = localRaw || (metaRaw ? JSON.stringify(metaRaw) : null)
+        if (!raw) { setAutoCompleting(false); return }
+
+        const p = JSON.parse(raw)
 
         // Resolve societyId — create the society now if it was a new one
         // (deferred from registration because email confirmation was enabled).
@@ -99,6 +104,7 @@ export default function DashboardJobs() {
           .from('owners').select('id').eq('user_id', user.id).maybeSingle()
         if (existingOwner) {
           localStorage.removeItem('reg_pending')
+          supabase.auth.updateUser({ data: { reg_pending: null } }).catch(() => {})
           window.location.reload()
           return
         }
@@ -173,6 +179,7 @@ export default function DashboardJobs() {
           }
 
           localStorage.removeItem('reg_pending')
+          supabase.auth.updateUser({ data: { reg_pending: null } }).catch(() => {})
           await supabase.functions.invoke('notify-admin', {
             body: {
               owner_name:   p.name,

@@ -3,12 +3,14 @@ import { useNavigate, Link } from 'react-router-dom'
 import {
   Printer, Upload, Package, Search,
   CheckCircle, MapPin, Home, Store, MessageCircle,
-  FileText, IndianRupee, ArrowRight, Zap, Shield, Star
+  FileText, IndianRupee, ArrowRight, Zap, Shield, Star, LocateFixed, Loader2
 } from 'lucide-react'
 
 export default function Landing() {
   const navigate = useNavigate()
   const [pincode, setPincode] = useState('')
+  const [locating, setLocating] = useState(false)
+  const [locError, setLocError] = useState('')
 
   const lastOrder = (() => {
     try { return JSON.parse(localStorage.getItem('last_order')) } catch { return null }
@@ -17,6 +19,26 @@ export default function Landing() {
   function handleFind(e) {
     e.preventDefault()
     if (pincode.trim()) navigate(`/find?pincode=${pincode.trim()}`)
+  }
+
+  function detectLocation() {
+    if (!navigator.geolocation) {
+      setLocError('Location not supported by your browser. Please enter your pincode.')
+      return
+    }
+    setLocating(true)
+    setLocError('')
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setLocating(false)
+        navigate(`/find?lat=${pos.coords.latitude.toFixed(6)}&lng=${pos.coords.longitude.toFixed(6)}`)
+      },
+      () => {
+        setLocating(false)
+        setLocError('Could not detect location. Please enter your pincode below.')
+      },
+      { timeout: 10000, maximumAge: 300000 }
+    )
   }
 
   return (
@@ -95,6 +117,30 @@ export default function Landing() {
 
           {/* Search bar */}
           <div className="max-w-md mx-auto">
+            {/* GPS detect button */}
+            <button
+              type="button"
+              onClick={detectLocation}
+              disabled={locating}
+              className="w-full flex items-center justify-center gap-2.5 mb-3 rounded-2xl border border-white/[0.15] text-white/80 hover:text-white hover:border-white/30 font-semibold text-sm transition-colors disabled:opacity-60 min-h-[48px] px-4"
+              style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)' }}
+            >
+              {locating
+                ? <><Loader2 size={16} className="animate-spin" /> Detecting your location...</>
+                : <><LocateFixed size={16} className="text-orange" /> Use my current location</>
+              }
+            </button>
+
+            {locError && (
+              <p className="text-red/80 text-xs text-center mb-2">{locError}</p>
+            )}
+
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-white/30 text-xs font-medium">or enter pincode</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+
             <form onSubmit={handleFind}>
               <div className="flex gap-2 p-1.5 rounded-2xl border border-white/[0.12]" style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)' }}>
                 <div className="flex-1 min-w-0 flex items-center gap-2.5 pl-3">
@@ -110,8 +156,8 @@ export default function Landing() {
                     maxLength={10}
                   />
                 </div>
-                <button type="submit" className="shrink-0 text-white font-bold text-sm px-6 rounded-xl min-h-[50px] transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(135deg, #FF6B35, #e85d25)' }}>
-                  Find Printer
+                <button type="submit" className="shrink-0 text-white font-bold text-sm px-5 rounded-xl min-h-[50px] transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(135deg, #FF6B35, #e85d25)' }}>
+                  Search
                 </button>
               </div>
             </form>

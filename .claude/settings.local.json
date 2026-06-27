@@ -21,7 +21,15 @@
       "Bash(wait)",
       "Bash(node screenshots/playwright-run.mjs)",
       "Bash(supabase db *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(npx supabase *)",
+      "Bash(curl *)",
+      "Bash(node *)",
+      "Skill(claude-in-chrome)",
+      "Bash(Read \"C:\\\\Users\\\\Zaheer\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\E--InkNeighbour\\\\e7c599af-9698-4904-adcc-f49c3dff0adf\\\\tasks\\\\bpucnqsw9.output\")",
+      "Bash(Remove-Item \"E:\\\\InkNeighbour\\\\register_before.png\", \"E:\\\\InkNeighbour\\\\register_society_after.png\", \"E:\\\\InkNeighbour\\\\register_society_shop.png\" -ErrorAction SilentlyContinue)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:d[k] for k in ['version','main','module','exports'] if k in d}, indent=2\\)\\)\")"
     ]
   }
 }

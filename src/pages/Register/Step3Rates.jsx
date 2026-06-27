@@ -183,30 +183,37 @@ export default function Step3Rates() {
     const isShop = step1.provider_type === 'shop'
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email:    step1.email,
-        password: step1.password,
-        options:  { emailRedirectTo: `${window.location.origin}/dashboard` }
-      })
+      // Step 1 already called signUp and stored the result. Use it if available.
+      let userId    = step1._userId    || null
+      let hasSession = step1._hasSession || false
 
-      if (authError) {
-        if (authError.status === 422 || authError.message?.toLowerCase().includes('already registered')) {
+      if (!userId) {
+        // Fallback for any legacy path where Step 1 didn't do signUp
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email:    step1.email,
+          password: step1.password,
+          options:  { emailRedirectTo: `${window.location.origin}/dashboard` }
+        })
+        if (authError) {
+          if (authError.status === 422 || authError.message?.toLowerCase().includes('already registered')) {
+            sessionStorage.removeItem('reg_step1')
+            sessionStorage.removeItem('reg_step2')
+            throw new Error('An account already exists with this email. Please sign in instead.')
+          }
+          throw authError
+        }
+        if (authData.user?.identities?.length === 0) {
           sessionStorage.removeItem('reg_step1')
           sessionStorage.removeItem('reg_step2')
           throw new Error('An account already exists with this email. Please sign in instead.')
         }
-        throw authError
-      }
-      if (authData.user?.identities?.length === 0) {
-        sessionStorage.removeItem('reg_step1')
-        sessionStorage.removeItem('reg_step2')
-        throw new Error('An account already exists with this email. Please sign in instead.')
+        userId     = authData.user?.id
+        hasSession = !!authData.session
       }
 
       // Build the serialisable payload used by both immediate and deferred paths
-      // Slug is needed for print shops; for home owners it's derived from society on Dashboard
       const pendingShopSlug = step1.provider_type === 'shop'
-        ? makeShopSlug(form.shop_name.trim()) + '-' + (authData.user?.id || '').split('-')[0]
+        ? makeShopSlug(form.shop_name.trim()) + '-' + (userId || '').split('-')[0]
         : null
 
       const ownerPayload = {
@@ -232,7 +239,7 @@ export default function Step3Rates() {
                                 ? Math.round(parseFloat(form.free_delivery_above || '0') * 100)
                                 : null,
         // Shop-only
-        shop_address:    isShop ? (step1.shop_address || null) : null,
+        shop_address:    isShop ? (step2.address || null) : null,
         gst_number:      isShop ? (step1.gst_number  || null) : null,
         locality:        isShop ? step2.locality : null,
         landmark:        isShop ? (step2.landmark || null) : null,
@@ -241,9 +248,14 @@ export default function Step3Rates() {
         delivery_tiers:  isShop ? form.delivery_tiers : null,
       }
 
-      if (!authData.session) {
-        // Deferred path: email confirmation enabled — store payload and wait
+      if (!hasSession) {
+        // Deferred path: email confirmation enabled — persist payload in both
+        // localStorage (same-device) and Supabase user metadata (cross-device).
         localStorage.setItem('reg_pending', JSON.stringify(ownerPayload))
+        // Fire-and-forget — failure is non-fatal; localStorage is the primary fallback.
+        supabase.functions.invoke('store-reg-pending', {
+          body: { user_id: userId, payload: ownerPayload }
+        }).catch(() => {})
         sessionStorage.setItem('reg_success', JSON.stringify({
           ownerName: step1.name,
           pendingEmail: step1.email
@@ -255,7 +267,6 @@ export default function Step3Rates() {
       }
 
       // ── Immediate path ───────────────────────────────────────────────────
-      const userId = authData.user.id
 
       const { data: existingOwner } = await supabase
         .from('owners').select('id').eq('user_id', userId).maybeSingle()
@@ -334,8 +345,17 @@ export default function Step3Rates() {
 
       if (ownerErr) {
         if (ownerErr.code === '23505') {
-          if (ownerErr.message?.includes('phone'))   throw new Error('This phone number is already registered to another shop.')
-          if (ownerErr.message?.includes('user_id')) { sessionStorage.removeItem('reg_step1'); sessionStorage.removeItem('reg_step2'); throw new Error('You already have a shop registered.') }
+          if (ownerErr.message?.includes('phone')) {
+            // Send user back to Step 1 to fix their phone number; preserve form data
+            sessionStorage.setItem('reg_error', 'phone_taken')
+            navigate('/register')
+            return
+          }
+          if (ownerErr.message?.includes('user_id')) {
+            sessionStorage.removeItem('reg_step1')
+            sessionStorage.removeItem('reg_step2')
+            throw new Error('You already have a shop registered.')
+          }
           throw new Error('This society already has a registered owner.')
         }
         throw ownerErr

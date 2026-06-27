@@ -1,10 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
-import { OlaMaps } from 'olamaps-web-sdk'
+import { OlaMaps, defaultStyleJson } from 'olamaps-web-sdk'
 import { MapPin, Search, X, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 const OLA_KEY = import.meta.env.VITE_OLA_MAPS_API_KEY
+const OLA_CLIENT_ID = import.meta.env.VITE_OLA_MAPS_CLIENT_ID
+const OLA_CLIENT_SECRET = import.meta.env.VITE_OLA_MAPS_CLIENT_SECRET
 const OLA_BASE = 'https://api.olamaps.io/places/v1'
+
+function extractLocality(components = []) {
+  const priority = ['sublocality_level_1', 'sublocality', 'neighborhood', 'locality']
+  for (const type of priority) {
+    const match = components.find(c => c.types?.includes(type))
+    if (match) return match.long_name
+  }
+  return ''
+}
 
 async function reverseGeocode(lat, lng) {
   const res = await fetch(
@@ -12,7 +23,11 @@ async function reverseGeocode(lat, lng) {
   )
   if (!res.ok) throw new Error('reverse-geocode failed')
   const data = await res.json()
-  return data.results?.[0]?.formatted_address ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+  const result = data.results?.[0]
+  return {
+    address:  result?.formatted_address ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+    locality: extractLocality(result?.address_components),
+  }
 }
 
 async function fetchPredictions(query) {
@@ -89,8 +104,8 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
         try {
           const lat = parseFloat(pos.coords.latitude.toFixed(7))
           const lng = parseFloat(pos.coords.longitude.toFixed(7))
-          const address = await reverseGeocode(lat, lng)
-          const r = { lat, lng, address, location_method: 'gps' }
+          const { address, locality } = await reverseGeocode(lat, lng)
+          const r = { lat, lng, address, locality, location_method: 'gps' }
           setResolved(r)
           resolvedRef.current = r
           setUiState('confirming')
@@ -130,72 +145,95 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
       return
     }
 
-    const ola = new OlaMaps({ apiKey: OLA_KEY })
-    olaMapsRef.current = ola
+    // index.js entry-point wraps OlaMaps with an async init() that dynamically
+    // imports the real SDK bundle. We must await it before calling addMarker().
+    let cancelled = false
 
-    ola.init({
-      container: mapContainerRef.current,
-      center: [resolved.lng, resolved.lat],
-      zoom: 16,
-      scrollZoom: false,
-    }).then((map) => {
-      mapRef.current = map
+    ;(async () => {
+      // Wait one rAF so the browser finishes layout after display:none → block.
+      // Without this MapLibre sees a 0-width container and never renders tiles.
+      await new Promise(r => requestAnimationFrame(r))
+      if (cancelled) return
 
-      const marker = ola.addMarker({ draggable: true })
-        .setLngLat([resolved.lng, resolved.lat])
-        .addTo(map)
-      markerRef.current = marker
+      try {
+        const ola = new OlaMaps({
+          apiKey: OLA_KEY,
+          ...(OLA_CLIENT_ID && { clientId: OLA_CLIENT_ID }),
+          ...(OLA_CLIENT_SECRET && { clientSecret: OLA_CLIENT_SECRET }),
+        })
+        olaMapsRef.current = ola
 
-      // Marker drag → reverse-geocode → require re-confirmation
-      marker.on('dragend', async () => {
-        const lngLat = marker.getLngLat()
-        const lat = parseFloat(lngLat.lat.toFixed(7))
-        const lng = parseFloat(lngLat.lng.toFixed(7))
-        try {
-          const address = await reverseGeocode(lat, lng)
-          const r = { lat, lng, address, location_method: resolvedRef.current?.location_method ?? 'manual' }
-          setResolved(r)
-          resolvedRef.current = r
-        } catch {
-          const r = { lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, location_method: 'manual' }
-          setResolved(r)
-          resolvedRef.current = r
-        }
-        setUiState('confirming')
-      })
+        // attributionControl:false stops MapLibre's built-in control from calling
+        // map._getUIString() which is unavailable on the SDK's map proxy.
+        const map = await ola.init({
+          style: defaultStyleJson,
+          container: mapContainerRef.current,
+          center: [resolved.lng, resolved.lat],
+          zoom: 16,
+          scrollZoom: false,
+          attributionControl: false,
+        })
 
-      // Method 3: Map tap → manual pin
-      map.on('click', async (e) => {
-        const lat = parseFloat(e.lngLat.lat.toFixed(7))
-        const lng = parseFloat(e.lngLat.lng.toFixed(7))
-        marker.setLngLat([lng, lat])
-        map.flyTo({ center: [lng, lat], zoom: 16 })
-        try {
-          const address = await reverseGeocode(lat, lng)
-          const r = { lat, lng, address, location_method: 'manual' }
-          setResolved(r)
-          resolvedRef.current = r
-        } catch {
-          const r = { lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, location_method: 'manual' }
-          setResolved(r)
-          resolvedRef.current = r
-        }
-        setUiState('confirming')
-      })
-    }).catch(() => {
-      toast.error('Map failed to load. Search for your address instead.')
-      if (!resolvedRef.current) setUiState('searching')
-    })
-  }, [showMap]) // eslint-disable-line react-hooks/exhaustive-deps
+        if (cancelled) { try { map?.remove() } catch { /* ignore */ }; return }
 
-  // Map cleanup on unmount
-  useEffect(() => {
+        mapRef.current = map
+
+        const marker = ola.addMarker({ draggable: true })
+          .setLngLat([resolved.lng, resolved.lat])
+          .addTo(map)
+        markerRef.current = marker
+
+        // Marker drag → reverse-geocode → require re-confirmation
+        marker.on('dragend', async () => {
+          const lngLat = marker.getLngLat()
+          const lat = parseFloat(lngLat.lat.toFixed(7))
+          const lng = parseFloat(lngLat.lng.toFixed(7))
+          try {
+            const { address, locality } = await reverseGeocode(lat, lng)
+            const r = { lat, lng, address, locality, location_method: resolvedRef.current?.location_method ?? 'manual' }
+            setResolved(r)
+            resolvedRef.current = r
+          } catch {
+            const r = { lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, locality: '', location_method: 'manual' }
+            setResolved(r)
+            resolvedRef.current = r
+          }
+          setUiState('confirming')
+        })
+
+        // Map tap → manual pin
+        map.on('click', async (e) => {
+          const lat = parseFloat(e.lngLat.lat.toFixed(7))
+          const lng = parseFloat(e.lngLat.lng.toFixed(7))
+          marker.setLngLat([lng, lat])
+          map.flyTo({ center: [lng, lat], zoom: 16 })
+          try {
+            const { address, locality } = await reverseGeocode(lat, lng)
+            const r = { lat, lng, address, locality, location_method: 'manual' }
+            setResolved(r)
+            resolvedRef.current = r
+          } catch {
+            const r = { lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, locality: '', location_method: 'manual' }
+            setResolved(r)
+            resolvedRef.current = r
+          }
+          setUiState('confirming')
+        })
+      } catch (err) {
+        if (cancelled) return
+        console.error('[ShopLocationMap] init error:', err)
+        toast.error('Map failed to load. Search for your address instead.')
+        if (!resolvedRef.current) setUiState('searching')
+      }
+    })()
+
     return () => {
+      cancelled = true
       try { mapRef.current?.remove() } catch { /* ignore */ }
-      mapRef.current  = null
+      mapRef.current   = null
       markerRef.current = null
     }
-  }, [])
+  }, [showMap]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   async function pickPrediction(pred) {
@@ -205,7 +243,8 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
     try {
       const geo = await geocodePlace(pred.description)
       if (!geo) throw new Error('no result')
-      const r = { lat: geo.lat, lng: geo.lng, address: geo.address, location_method: 'search' }
+      const { locality } = await reverseGeocode(geo.lat, geo.lng).catch(() => ({ locality: '' }))
+      const r = { lat: geo.lat, lng: geo.lng, address: geo.address, locality, location_method: 'search' }
       setResolved(r)
       resolvedRef.current = r
       setUiState('confirming')
@@ -224,7 +263,13 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
   function handleConfirm() {
     if (!resolved) return
     setUiState('confirmed')
-    onChange(resolved)
+    onChange({
+      lat:             resolved.lat,
+      lng:             resolved.lng,
+      address:         resolved.address,
+      locality:        resolved.locality ?? '',
+      location_method: resolved.location_method,
+    })
   }
 
   function handleChange() {
@@ -327,11 +372,11 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
               {resolved.address || `${resolved.lat.toFixed(5)}, ${resolved.lng.toFixed(5)}`}
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-2">
             <button
               type="button"
               onClick={handleConfirm}
-              className="flex-1 min-h-[52px] rounded-xl bg-violet text-white font-semibold text-base flex items-center justify-center gap-2 hover:bg-violet/90 active:bg-violet/80 transition-colors"
+              className="w-full min-h-[52px] rounded-xl bg-violet text-white font-semibold text-base flex items-center justify-center gap-2 hover:bg-violet/90 active:bg-violet/80 transition-colors"
             >
               <Check size={18} />
               Yes, this is my shop
@@ -339,9 +384,9 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
             <button
               type="button"
               onClick={handleChange}
-              className="min-h-[52px] px-4 rounded-xl border border-border text-ink font-medium text-sm hover:bg-bg transition-colors"
+              className="w-full min-h-[44px] rounded-xl border border-border text-ink font-medium text-sm hover:bg-bg transition-colors"
             >
-              Change
+              Change location
             </button>
           </div>
           <p className="text-xs text-muted text-center">Or tap the map to place pin manually</p>

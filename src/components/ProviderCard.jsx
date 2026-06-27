@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Home, Store, Clock } from 'lucide-react'
+import { Home, Store, Clock, MapPin, Truck, Star } from 'lucide-react'
 import { formatCurrency } from '../lib/countries'
-import { StarDisplay } from './StarRating'
 import Badge from './ui/Badge'
 import Button from './ui/Button'
 
@@ -14,8 +13,9 @@ import Button from './ui/Button'
  *   slug        – URL slug to link to (society.slug for home, owner slug for shop)
  *   backHref    – href saved in sessionStorage so the shop page can navigate back
  *   isOpen      – optional boolean; undefined = omit open/closed indicator
+ *   distanceKm  – optional number; shown as distance badge when present
  */
-export default function ProviderCard({ owner, slug, backHref, isOpen }) {
+export default function ProviderCard({ owner, slug, backHref, isOpen, distanceKm, nextAvailable }) {
   const { t } = useTranslation()
 
   const isShop      = owner.provider_type === 'shop'
@@ -74,20 +74,49 @@ export default function ProviderCard({ owner, slug, backHref, isOpen }) {
                 isOpen ? 'bg-green/10 text-green' : 'bg-amber/10 text-amber'
               }`}>
                 <Clock size={11} />
-                {isOpen ? t('find.open_now') : t('find.closed_now')}
+                {isOpen
+                  ? t('find.open_now')
+                  : nextAvailable
+                    ? `Opens ${nextAvailable}`
+                    : t('find.closed_now')
+                }
+              </span>
+            )}
+
+            {/* Distance badge */}
+            {distanceKm != null && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-sky/10 text-sky">
+                <MapPin size={11} />
+                {distanceKm < 1
+                  ? `${Math.round(distanceKm * 1000)} m`
+                  : `${distanceKm.toFixed(1)} km`
+                }
               </span>
             )}
           </div>
 
-          <h2 className="font-bold text-xl text-ink leading-tight truncate">{shopTitle}</h2>
-          <p className="text-muted text-sm">{t('find.managed_by', { name: owner.name.split(' ')[0] })}</p>
-          {location && <p className="text-sm text-muted mt-0.5">{location}</p>}
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <h2 className="font-bold text-xl text-ink leading-tight">{shopTitle}</h2>
+            {rating ? (
+              <span className="inline-flex items-center gap-1 bg-amber/10 text-amber px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0">
+                <Star size={11} fill="currentColor" />
+                {rating.avg}
+                <span className="font-normal text-muted">({rating.count})</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 bg-sky/10 text-sky px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0">
+                New
+              </span>
+            )}
+          </div>
+          <p className="text-muted text-sm mt-0.5">{t('find.managed_by', { name: owner.name.split(' ')[0] })}</p>
+          {location && <p className="text-sm text-muted">{location}</p>}
         </div>
 
         <Badge status={owner.status} />
       </div>
 
-      {/* Rates row */}
+      {/* Rates + delivery row */}
       <div className="flex flex-wrap gap-2 text-sm">
         <span className="bg-bg px-3 py-1 rounded-pill font-medium text-ink">
           {t('find.bw_rate', { rate: fmt(owner.bw_rate) })}
@@ -95,15 +124,18 @@ export default function ProviderCard({ owner, slug, backHref, isOpen }) {
         <span className="bg-bg px-3 py-1 rounded-pill font-medium text-ink">
           {t('find.color_rate', { rate: fmt(owner.color_rate) })}
         </span>
-        {deliveryCopy && (
-          <span className="bg-bg px-3 py-1 rounded-pill font-medium text-ink">
+        {deliveryCopy ? (
+          <span className="inline-flex items-center gap-1.5 bg-bg px-3 py-1 rounded-pill font-medium text-ink">
+            <Truck size={12} className="text-green flex-shrink-0" />
             {deliveryCopy}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 bg-bg px-3 py-1 rounded-pill font-medium text-muted">
+            <Truck size={12} className="flex-shrink-0" />
+            Pickup only
           </span>
         )}
       </div>
-
-      {/* Star rating */}
-      {rating && <StarDisplay rating={parseFloat(rating.avg)} count={rating.count} />}
 
       {/* CTA */}
       <Link
@@ -118,7 +150,7 @@ export default function ProviderCard({ owner, slug, backHref, isOpen }) {
 }
 
 function getAggregateRating(feedback) {
-  if (!feedback?.length || feedback.length < 3) return null
+  if (!feedback?.length) return null
   const avg = feedback.reduce((sum, f) => sum + f.star_rating, 0) / feedback.length
   return { avg: avg.toFixed(1), count: feedback.length }
 }

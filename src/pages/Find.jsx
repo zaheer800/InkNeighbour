@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Printer, Home, Store, Filter, List, Map as MapIcon } from 'lucide-react'
+import { Printer, Home, Store, Filter, List, Map as MapIcon, LocateFixed } from 'lucide-react'
 import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -10,14 +10,38 @@ import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png'
 import shadowUrl     from 'leaflet/dist/images/marker-shadow.png'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/countries'
+import { getEffectiveState, resolveNextAvailable } from '../lib/availability'
 import Button from '../components/ui/Button'
 import Footer from '../components/Footer'
 import AppNav from '../components/AppNav'
 import ProviderCard from '../components/ProviderCard'
 
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+const GPS_RADIUS_KM = 5
+
 // Fix leaflet icon paths broken by Vite bundling
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl })
+
+// User location pulse icon for GPS mode
+const userIcon = L.divIcon({
+  className: '',
+  html: `<div style="
+    width:16px;height:16px;border-radius:50%;
+    background:#FF6B35;border:3px solid white;
+    box-shadow:0 0 0 4px rgba(255,107,53,0.3);
+  "></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+})
 
 // Custom div icons for map pins
 const makeIcon = (color) => L.divIcon({
@@ -39,12 +63,31 @@ const shopIcon = makeIcon('#7C3AED')   // violet
 
 const FILTERS = ['all', 'home', 'shop']
 const INDIA_CENTER = [20.5937, 78.9629]
+const PINCODE_RADIUS_KM = 5
+
+async function geocodePincode(pincode) {
+  if (!pincode) return null
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&postalcode=${encodeURIComponent(pincode)}&countrycodes=in&limit=1`,
+      { headers: { 'Accept-Language': 'en' } }
+    )
+    const data = await res.json()
+    if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+  } catch { /* silent */ }
+  return null
+}
 
 export default function Find() {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const pincode = searchParams.get('pincode') || ''
   const locality = searchParams.get('locality') || ''
+  const rawLat = searchParams.get('lat')
+  const rawLng = searchParams.get('lng')
+  const userLat = rawLat ? parseFloat(rawLat) : null
+  const userLng = rawLng ? parseFloat(rawLng) : null
+  const isGpsMode = Boolean(userLat && userLng)
 
   const [homeShops, setHomeShops]       = useState([])
   const [printShops, setPrintShops]     = useState([])
@@ -55,23 +98,52 @@ export default function Find() {
 
   // Fetch shops
   useEffect(() => {
-    if (!pincode && !locality) { setLoading(false); return }
+    if (!pincode && !locality && !isGpsMode) { setLoading(false); return }
 
     async function fetchAll() {
       setLoading(true)
 
+      if (isGpsMode) {
+        // GPS mode: fetch all active shops with coordinates, filter by radius client-side
+        const { data: shops } = await supabase
+          .from('owners')
+          .select(`
+            id, name, slug, shop_name, shop_address, locality, landmark, lat, lng,
+            status, bw_rate, color_rate, delivery_fee, country_code, provider_type,
+            manual_state, system_override, override_expires_at,
+            feedback(star_rating),
+            delivery_fee_tiers(max_km, fee)
+          `)
+          .eq('provider_type', 'shop')
+          .eq('status', 'active')
+          .not('lat', 'is', null)
+          .not('lng', 'is', null)
+          .limit(200)
+
+        const nearby = (shops || [])
+          .map(s => ({ ...s, distance_km: haversineKm(userLat, userLng, s.lat, s.lng) }))
+          .filter(s => s.distance_km <= GPS_RADIUS_KM)
+          .sort((a, b) => a.distance_km - b.distance_km)
+
+        setHomeShops([])
+        setPrintShops(nearby)
+        setLoading(false)
+        return
+      }
+
+      // Pincode/locality mode — run home query, shop query, and pincode geocode in parallel
       const homeQuery = pincode
         ? supabase
             .from('owners')
             .select(`
               id, name, shop_name, status, bw_rate, color_rate, delivery_fee,
-              country_code, provider_type,
+              country_code, provider_type, manual_state, system_override, override_expires_at,
               societies!inner(id, name, slug, city, state, postal_code),
               feedback(star_rating)
             `)
             .eq('provider_type', 'home')
             .eq('societies.postal_code', pincode)
-            .neq('status', 'inactive')
+            .eq('status', 'active')
         : Promise.resolve({ data: [] })
 
       const shopQuery = supabase
@@ -79,55 +151,72 @@ export default function Find() {
         .select(`
           id, name, slug, shop_name, shop_address, locality, landmark, lat, lng,
           status, bw_rate, color_rate, delivery_fee, country_code, provider_type,
+          manual_state, system_override, override_expires_at,
           feedback(star_rating),
           delivery_fee_tiers(max_km, fee)
         `)
         .eq('provider_type', 'shop')
-        .neq('status', 'inactive')
-        .limit(50)
+        .eq('status', 'active')
+        .limit(100)
 
-      const [homeRes, shopRes] = await Promise.all([homeQuery, shopQuery])
+      const [homeRes, shopRes, pincodeCenter] = await Promise.all([
+        homeQuery,
+        shopQuery,
+        geocodePincode(pincode),
+      ])
+
+      if (pincodeCenter) setPincodeLatLng([pincodeCenter.lat, pincodeCenter.lng])
 
       setHomeShops(homeRes.data || [])
 
       const rawShops = shopRes.data || []
-      const filtered = pincode
-        ? rawShops.filter(s =>
-            (s.shop_address || '').includes(pincode) ||
-            (s.locality     || '').includes(pincode)
-          )
-        : rawShops
 
-      setPrintShops(filtered)
+      // Primary: proximity search using geocoded pincode centre (works even when
+      // shop_address pincode differs from the searched pincode due to geocoding drift).
+      // Fallback: text match in shop_address/locality for shops without coordinates.
+      const filteredShops = rawShops
+        .map(s => {
+          const hasCoords = s.lat != null && s.lng != null
+          const distKm = hasCoords && pincodeCenter
+            ? haversineKm(pincodeCenter.lat, pincodeCenter.lng, s.lat, s.lng)
+            : null
+          return { ...s, _distKm: distKm }
+        })
+        .filter(s => {
+          if (s._distKm != null) return s._distKm <= PINCODE_RADIUS_KM
+          if (!pincode) return true
+          return (s.shop_address || '').includes(pincode) || (s.locality || '').includes(pincode)
+        })
+        .sort((a, b) => {
+          if (a._distKm != null && b._distKm != null) return a._distKm - b._distKm
+          if (a._distKm != null) return -1
+          if (b._distKm != null) return 1
+          return 0
+        })
+        .map(({ _distKm, ...s }) => _distKm != null ? { ...s, distance_km: _distKm } : s)
+
+      setPrintShops(filteredShops)
       setLoading(false)
     }
 
     fetchAll()
-  }, [pincode, locality])
+  }, [pincode, locality, isGpsMode, userLat, userLng])
 
-  // Geocode the pincode once (lazy — only when user opens map view)
-  useEffect(() => {
-    if (viewMode !== 'map' || !pincode || pincodeLatLng) return
-
-    fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&postalcode=${encodeURIComponent(pincode)}&countrycodes=in&limit=1`,
-      { headers: { 'Accept-Language': 'en' } }
-    )
-      .then(r => r.json())
-      .then(data => {
-        if (data?.[0]) {
-          setPincodeLatLng([parseFloat(data[0].lat), parseFloat(data[0].lon)])
-        }
-      })
-      .catch(() => {})
-  }, [viewMode, pincode, pincodeLatLng])
 
   const allResults = useMemo(() => {
-    const home = homeShops.map(s => ({ ...s, _slug: s.societies?.slug }))
-    const shop = printShops.map(s => ({ ...s, _slug: s.slug }))
+    const enrich = (s, slug) => {
+      const isOpen = s.status === 'active' && getEffectiveState(s, []) === 'AVAILABLE'
+      const nextAvailable = isOpen ? null : resolveNextAvailable(s, [])
+      return { ...s, _slug: slug, isOpen, nextAvailable }
+    }
+    const home = homeShops.map(s => enrich(s, s.societies?.slug))
+    const shop = printShops.map(s => enrich(s, s.slug))
     return [...home, ...shop].sort((a, b) => {
-      if (a.status === 'active' && b.status !== 'active') return -1
-      if (b.status === 'active' && a.status !== 'active') return 1
+      // Open (accepting orders) first
+      if (a.isOpen && !b.isOpen) return -1
+      if (!a.isOpen && b.isOpen) return 1
+      // Then nearest first (GPS and pincode geocode modes)
+      if (a.distance_km != null && b.distance_km != null) return a.distance_km - b.distance_km
       return 0
     })
   }, [homeShops, printShops])
@@ -138,15 +227,27 @@ export default function Find() {
     return allResults
   }, [allResults, filter])
 
-  // Map centre: first shop with coords, then pincode geocode, then India
+  const stats = useMemo(() => {
+    if (!allResults.length) return null
+    return {
+      home:    allResults.filter(r => r.provider_type === 'home').length,
+      shop:    allResults.filter(r => r.provider_type === 'shop').length,
+      openNow: allResults.filter(r => r.isOpen).length,
+    }
+  }, [allResults])
+
+  // Map centre: GPS user location > first result with coords > pincode geocode > India
   const mapCenter = useMemo(() => {
+    if (isGpsMode && userLat && userLng) return [userLat, userLng]
     const withCoords = displayed.find(r => r.lat && r.lng)
     if (withCoords) return [withCoords.lat, withCoords.lng]
     if (pincodeLatLng) return pincodeLatLng
     return INDIA_CENTER
-  }, [displayed, pincodeLatLng])
+  }, [displayed, pincodeLatLng, isGpsMode, userLat, userLng])
 
-  const backHref = `/find?pincode=${pincode}`
+  const backHref = isGpsMode
+    ? `/find?lat=${userLat}&lng=${userLng}`
+    : `/find?pincode=${pincode}`
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
@@ -155,11 +256,17 @@ export default function Find() {
       <div className="page-hero px-4 py-10 text-white relative">
         <div className="relative z-10 max-w-2xl mx-auto">
           <h1 className="font-display text-3xl font-bold">
-            {t('find.title', { pincode })}
+            {isGpsMode
+              ? <span className="flex items-center gap-2"><LocateFixed size={24} className="text-orange" /> Printers near you</span>
+              : t('find.title', { pincode })
+            }
           </h1>
           {!loading && allResults.length > 0 && (
             <p className="text-white/60 text-sm mt-1">
-              {t('find.result_count', { count: allResults.length })}
+              {isGpsMode
+                ? `${allResults.length} printer${allResults.length !== 1 ? 's' : ''} within ${GPS_RADIUS_KM} km`
+                : t('find.result_count', { count: allResults.length })
+              }
             </p>
           )}
         </div>
@@ -217,6 +324,33 @@ export default function Find() {
           </div>
         )}
 
+        {/* Directory stats bar */}
+        {!loading && stats && (
+          <div className="flex items-center gap-3 text-sm bg-surface rounded-xl px-4 py-3 shadow-card">
+            {stats.home > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Home size={14} className="text-orange flex-shrink-0" />
+                <span className="font-semibold text-ink">{stats.home}</span>
+                <span className="text-muted">{stats.home === 1 ? 'home printer' : 'home printers'}</span>
+              </span>
+            )}
+            {stats.home > 0 && stats.shop > 0 && <span className="text-border">·</span>}
+            {stats.shop > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Store size={14} className="text-violet flex-shrink-0" />
+                <span className="font-semibold text-ink">{stats.shop}</span>
+                <span className="text-muted">{stats.shop === 1 ? 'shop' : 'shops'}</span>
+              </span>
+            )}
+            <span className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stats.openNow > 0 ? 'bg-green' : 'bg-muted/40'}`} />
+              <span className={`font-semibold ${stats.openNow > 0 ? 'text-green' : 'text-muted'}`}>
+                {stats.openNow > 0 ? `${stats.openNow} open now` : 'None open now'}
+              </span>
+            </span>
+          </div>
+        )}
+
         {/* Results */}
         {loading ? (
           <p className="text-center text-muted py-12">{t('find.loading')}</p>
@@ -229,7 +363,12 @@ export default function Find() {
               {allResults.length > 0 ? t('find.filter_empty') : t('find.empty_title')}
             </h2>
             <p className="text-muted">
-              {allResults.length > 0 ? t('find.filter_empty_desc') : t('find.empty_desc')}
+              {allResults.length > 0
+                ? t('find.filter_empty_desc')
+                : isGpsMode
+                  ? `No print shops found within ${GPS_RADIUS_KM} km of your location.`
+                  : t('find.empty_desc')
+              }
             </p>
             {allResults.length === 0 && (
               <Link to="/register">
@@ -244,6 +383,9 @@ export default function Find() {
               owner={owner}
               slug={owner._slug}
               backHref={backHref}
+              distanceKm={owner.distance_km ?? undefined}
+              isOpen={owner.isOpen}
+              nextAvailable={owner.nextAvailable}
             />
           ))
         ) : (
@@ -259,6 +401,13 @@ export default function Find() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
               />
+
+              {/* User location marker in GPS mode */}
+              {isGpsMode && userLat && userLng && (
+                <Marker position={[userLat, userLng]} icon={userIcon}>
+                  <Popup><p className="text-sm font-semibold">Your location</p></Popup>
+                </Marker>
+              )}
 
               {displayed.map(owner => {
                 const isShop = owner.provider_type === 'shop'

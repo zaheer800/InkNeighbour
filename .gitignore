@@ -39,3 +39,4 @@ supabase/.temp/
 .gitignore
 
 screenshots/
+.claude/settings.local.json

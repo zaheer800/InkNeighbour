@@ -1,0 +1,1 @@
+-- Applied directly on remote. Captured in local migrations 001-021.
