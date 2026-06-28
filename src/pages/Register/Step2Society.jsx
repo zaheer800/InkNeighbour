@@ -9,6 +9,18 @@ import ShopLocationMap from '../../components/ShopLocationMap'
 import Footer from '../../components/Footer'
 import { Info } from 'lucide-react'
 
+async function geocodePostalCode(code) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&postalcode=${encodeURIComponent(code)}&countrycodes=in&limit=1`,
+      { headers: { 'Accept-Language': 'en' } }
+    )
+    const data = await res.json()
+    if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+  } catch { /* silent */ }
+  return null
+}
+
 export default function Step2Society() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -18,6 +30,7 @@ export default function Step2Society() {
   // ── Home owner state ─────────────────────────────────────────────────────
   const [postalCode, setPostalCode]   = useState('')
   const [postalError, setPostalError] = useState('')
+  const [geocoding, setGeocoding]     = useState(false)
 
   // ── Print shop state ─────────────────────────────────────────────────────
   const [shopForm, setShopForm] = useState({ locality: '', landmark: '', lat: null, lng: null, address: '', location_method: null })
@@ -49,8 +62,15 @@ export default function Step2Society() {
   }, [navigate])
 
   // ── Home owner: society selected ─────────────────────────────────────────
-  function handleSocietySelect(societyData) {
-    sessionStorage.setItem('reg_step2', JSON.stringify({ ...societyData, postalCode }))
+  async function handleSocietySelect(societyData) {
+    setGeocoding(true)
+    const geo = await geocodePostalCode(postalCode)
+    sessionStorage.setItem('reg_step2', JSON.stringify({
+      ...societyData,
+      postalCode,
+      lat: geo?.lat ?? null,
+      lng: geo?.lng ?? null,
+    }))
     navigate('/register/rates')
   }
 
@@ -123,6 +143,7 @@ export default function Step2Society() {
                   postalCode={postalCode}
                   countryCode={step1.country_code}
                   onSelect={handleSocietySelect}
+                  disabled={geocoding}
                 />
               )}
             </div>

@@ -321,10 +321,12 @@ export default function Step3Rates() {
             country_code:    ownerPayload.country_code,
             max_active_jobs:      ownerPayload.max_active_jobs,
             free_delivery_above:  ownerPayload.free_delivery_above,
+            manual_state:    'ON',
           }
         : {
             user_id:              userId,
             provider_type:        'home',
+            status:               'active',
             name:                 ownerPayload.name,
             phone:                ownerPayload.phone,
             flat_number:          ownerPayload.flat_number,
@@ -338,6 +340,9 @@ export default function Step3Rates() {
             country_code:         ownerPayload.country_code,
             max_active_jobs:      ownerPayload.max_active_jobs,
             free_delivery_above:  ownerPayload.free_delivery_above,
+            lat:                  step2.lat ?? null,
+            lng:                  step2.lng ?? null,
+            manual_state:         'ON',
           }
 
       const { data: newOwner, error: ownerErr } = await supabase

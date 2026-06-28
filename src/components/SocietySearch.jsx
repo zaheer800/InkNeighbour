@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Search, MapPin, AlertCircle } from 'lucide-react'
+import { Search, MapPin, AlertCircle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { getDuplicateWarning } from '../lib/fuzzyMatch'
@@ -10,7 +10,7 @@ import Button from './ui/Button'
  * Society search + selection component for owner registration Step 2.
  * Handles known societies, taken slots, fuzzy duplicate detection.
  */
-export default function SocietySearch({ postalCode, countryCode = 'IN', onSelect }) {
+export default function SocietySearch({ postalCode, countryCode = 'IN', onSelect, disabled = false }) {
   const { t } = useTranslation()
   const [societies, setSocieties] = useState([])
   const [searched, setSearched] = useState(false)
@@ -48,6 +48,7 @@ export default function SocietySearch({ postalCode, countryCode = 'IN', onSelect
   }
 
   function handleSelectExisting(society) {
+    if (disabled) return
     if (society.is_taken) {
       alert(t('register.society_taken', { name: society.owner_name }))
       return
@@ -56,6 +57,7 @@ export default function SocietySearch({ postalCode, countryCode = 'IN', onSelect
   }
 
   function handleConfirmManual() {
+    if (disabled) return
     if (warning && !confirmedOverride) {
       setConfirmedOverride(true)
       return
@@ -135,10 +137,13 @@ export default function SocietySearch({ postalCode, countryCode = 'IN', onSelect
               )}
               <Button
                 onClick={handleConfirmManual}
-                disabled={!manualName.trim()}
+                disabled={!manualName.trim() || disabled}
                 className="w-full"
               >
-                {warning && !confirmedOverride ? t('register.yes_different') : t('register.confirm_society')}
+                {disabled
+                  ? <><Loader2 size={16} className="animate-spin" /> Saving…</>
+                  : warning && !confirmedOverride ? t('register.yes_different') : t('register.confirm_society')
+                }
               </Button>
             </div>
           )}

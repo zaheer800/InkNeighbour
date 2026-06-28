@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Home, Store, Clock, MapPin, Truck, Star } from 'lucide-react'
 import { formatCurrency } from '../lib/countries'
-import Badge from './ui/Badge'
 import Button from './ui/Button'
 
 /**
@@ -113,7 +112,6 @@ export default function ProviderCard({ owner, slug, backHref, isOpen, distanceKm
           {location && <p className="text-sm text-muted">{location}</p>}
         </div>
 
-        <Badge status={owner.status} />
       </div>
 
       {/* Rates + delivery row */}

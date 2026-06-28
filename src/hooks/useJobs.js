@@ -100,6 +100,25 @@ export function useJobs() {
   const markDelivered = useCallback((jobId) => updateJobStatus(jobId, 'feedback_pending'), [updateJobStatus])
   const cancelJob = useCallback((jobId) => updateJobStatus(jobId, 'cancelled'), [updateJobStatus])
 
+  // Server-side PIN verification — delivery_pin is not exposed to the authenticated role,
+  // so verification must go through this RPC (SECURITY DEFINER function in the DB).
+  const verifyAndDeliver = useCallback(async (jobId, pin) => {
+    const { data: success, error } = await supabase.rpc('verify_and_deliver', {
+      p_job_id: jobId,
+      p_pin: pin
+    })
+    if (error) return { error }
+    if (!success) return { error: { message: 'wrong_pin' } }
+
+    await deleteJobFile(jobId)
+
+    const { data: updated } = await supabase.from('jobs').select('*').eq('id', jobId).single()
+    if (updated) {
+      setJobs(prev => prev.map(j => j.id === jobId ? updated : j))
+    }
+    return { data: updated }
+  }, [])
+
   const getSignedUrl = useCallback(async (filePath) => {
     const { data, error } = await supabase.storage
       .from('job-files')
@@ -116,6 +135,7 @@ export function useJobs() {
     markPrinting,
     markDelivered,
     cancelJob,
+    verifyAndDeliver,
     getSignedUrl
   }
 }
