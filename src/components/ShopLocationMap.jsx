@@ -378,7 +378,7 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
             <button
               type="button"
               onClick={handleChange}
-              className="w-full min-h-[44px] rounded-xl border border-border text-ink font-medium text-sm hover:bg-bg transition-colors"
+              className="w-full min-h-[48px] rounded-xl border border-border text-ink font-medium text-sm hover:bg-bg transition-colors"
             >
               Change location
             </button>
@@ -399,7 +399,7 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
           <button
             type="button"
             onClick={handleChange}
-            className="text-sm text-violet font-medium hover:text-violet/80 transition-colors min-h-[44px] text-center"
+            className="text-sm text-violet font-medium hover:text-violet/80 transition-colors min-h-[48px] text-center"
           >
             Change location
           </button>

@@ -1,13 +1,8 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Printer, Home, Store, Filter, List, Map as MapIcon, LocateFixed } from 'lucide-react'
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import iconUrl       from 'leaflet/dist/images/marker-icon.png'
-import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png'
-import shadowUrl     from 'leaflet/dist/images/marker-shadow.png'
+import { OlaMaps, defaultStyleJson } from 'olamaps-web-sdk'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/countries'
 import { getEffectiveState, resolveNextAvailable } from '../lib/availability'
@@ -26,40 +21,19 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 }
 
 const GPS_RADIUS_KM = 5
+const OLA_KEY = import.meta.env.VITE_OLA_MAPS_API_KEY
 
-// Fix leaflet icon paths broken by Vite bundling
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl })
-
-// User location pulse icon for GPS mode
-const userIcon = L.divIcon({
-  className: '',
-  html: `<div style="
-    width:16px;height:16px;border-radius:50%;
-    background:#FF6B35;border:3px solid white;
-    box-shadow:0 0 0 4px rgba(255,107,53,0.3);
-  "></div>`,
-  iconSize: [16, 16],
-  iconAnchor: [8, 8],
-})
-
-// Custom div icons for map pins
-const makeIcon = (color) => L.divIcon({
-  className: '',
-  html: `<div style="
-    width:28px;height:28px;border-radius:50% 50% 50% 0;
-    background:${color};border:2px solid white;
-    box-shadow:0 2px 6px rgba(0,0,0,0.3);
-    transform:rotate(-45deg);
-    display:flex;align-items:center;justify-content:center;
-  "></div>`,
-  iconSize:   [28, 28],
-  iconAnchor: [14, 28],
-  popupAnchor:[0, -30],
-})
-
-const homeIcon = makeIcon('#FF6B35')   // orange
-const shopIcon = makeIcon('#7C3AED')   // violet
+function circleFeature(centerLng, centerLat, radiusKm) {
+  const pts = 64
+  const coords = []
+  for (let i = 0; i <= pts; i++) {
+    const angle = (i / pts) * 2 * Math.PI
+    const dLng = (radiusKm / (111.32 * Math.cos(centerLat * Math.PI / 180))) * Math.sin(angle)
+    const dLat = (radiusKm / 110.574) * Math.cos(angle)
+    coords.push([centerLng + dLng, centerLat + dLat])
+  }
+  return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] } }
+}
 
 const FILTERS = ['all', 'home', 'shop']
 const INDIA_CENTER = [20.5937, 78.9629]
@@ -104,29 +78,46 @@ export default function Find() {
       setLoading(true)
 
       if (isGpsMode) {
-        // GPS mode: fetch all active shops with coordinates, filter by radius client-side
-        const { data: shops } = await supabase
-          .from('owners')
-          .select(`
-            id, name, slug, shop_name, shop_address, locality, landmark, lat, lng,
-            status, bw_rate, color_rate, delivery_fee, country_code, provider_type,
-            manual_state, system_override, override_expires_at,
-            feedback(star_rating),
-            delivery_fee_tiers(max_km, fee)
-          `)
-          .eq('provider_type', 'shop')
-          .eq('status', 'active')
-          .not('lat', 'is', null)
-          .not('lng', 'is', null)
-          .limit(200)
+        // GPS mode: fetch both home owners and shops with coordinates, filter by radius client-side
+        const [homeRes, shopRes] = await Promise.all([
+          supabase
+            .from('owners')
+            .select(`
+              id, name, shop_name, status, bw_rate, color_rate, delivery_fee,
+              country_code, provider_type, manual_state, system_override, override_expires_at,
+              lat, lng,
+              societies(id, name, slug, city, state, postal_code),
+              feedback(star_rating)
+            `)
+            .eq('provider_type', 'home')
+            .eq('status', 'active')
+            .not('lat', 'is', null)
+            .not('lng', 'is', null)
+            .limit(200),
+          supabase
+            .from('owners')
+            .select(`
+              id, name, slug, shop_name, shop_address, locality, landmark, lat, lng,
+              status, bw_rate, color_rate, delivery_fee, country_code, provider_type,
+              manual_state, system_override, override_expires_at,
+              feedback(star_rating),
+              delivery_fee_tiers(max_km, fee)
+            `)
+            .eq('provider_type', 'shop')
+            .eq('status', 'active')
+            .not('lat', 'is', null)
+            .not('lng', 'is', null)
+            .limit(200),
+        ])
 
-        const nearby = (shops || [])
-          .map(s => ({ ...s, distance_km: haversineKm(userLat, userLng, s.lat, s.lng) }))
-          .filter(s => s.distance_km <= GPS_RADIUS_KM)
-          .sort((a, b) => a.distance_km - b.distance_km)
+        const addDistance = rows =>
+          (rows || [])
+            .map(s => ({ ...s, distance_km: haversineKm(userLat, userLng, s.lat, s.lng) }))
+            .filter(s => s.distance_km <= GPS_RADIUS_KM)
+            .sort((a, b) => a.distance_km - b.distance_km)
 
-        setHomeShops([])
-        setPrintShops(nearby)
+        setHomeShops(addDistance(homeRes.data))
+        setPrintShops(addDistance(shopRes.data))
         setLoading(false)
         return
       }
@@ -205,7 +196,11 @@ export default function Find() {
 
   const allResults = useMemo(() => {
     const enrich = (s, slug) => {
-      const isOpen = s.status === 'active' && getEffectiveState(s, []) === 'AVAILABLE'
+      // Schedules aren't fetched in search results, so use only explicit signals.
+      // manual_state null (not set) → treat as open; owner hasn't explicitly closed.
+      const forcedOff = s.system_override === 'FORCED_OFF' &&
+        s.override_expires_at && new Date(s.override_expires_at) > new Date()
+      const isOpen = s.status === 'active' && !forcedOff && s.manual_state !== 'OFF'
       const nextAvailable = isOpen ? null : resolveNextAvailable(s, [])
       return { ...s, _slug: slug, isOpen, nextAvailable }
     }
@@ -249,6 +244,110 @@ export default function Find() {
     ? `/find?lat=${userLat}&lng=${userLng}`
     : `/find?pincode=${pincode}`
 
+  const mapContainerRef = useRef(null)
+  const olaMapsRef = useRef(null)
+  const mapInstanceRef = useRef(null)
+
+  useEffect(() => {
+    if (viewMode !== 'map') return
+
+    let cancelled = false
+    ;(async () => {
+      await new Promise(r => requestAnimationFrame(r))
+      if (cancelled || !mapContainerRef.current) return
+      try {
+        const ola = new OlaMaps({ apiKey: OLA_KEY })
+        olaMapsRef.current = ola
+        const map = await ola.init({
+          style: defaultStyleJson,
+          container: mapContainerRef.current,
+          center: [mapCenter[1], mapCenter[0]],
+          zoom: 13,
+          scrollZoom: false,
+          attributionControl: false,
+        })
+        if (cancelled) { try { map?.remove() } catch { /* ignore */ } ; return }
+        mapInstanceRef.current = map
+
+        // Wait for style before adding sources/layers
+        if (!map.isStyleLoaded()) {
+          await new Promise(r => map.once('load', r))
+        }
+        if (cancelled) return
+
+        // User location dot in GPS mode
+        if (isGpsMode && userLat && userLng) {
+          const el = document.createElement('div')
+          el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#FF6B35;border:3px solid white;box-shadow:0 0 0 4px rgba(255,107,53,0.3);'
+          ola.addMarker({ element: el }).setLngLat([userLng, userLat]).addTo(map)
+        }
+
+        // Provider markers + popups
+        for (const owner of displayed) {
+          const isShop = owner.provider_type === 'shop'
+          const hasCords = owner.lat && owner.lng
+          const pos = hasCords
+            ? [owner.lng, owner.lat]
+            : pincodeLatLng ? [pincodeLatLng[1], pincodeLatLng[0]] : null
+          if (!pos) continue
+
+          const color = isShop ? '#7C3AED' : '#FF6B35'
+          const el = document.createElement('div')
+          el.style.cssText = `width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);transform:rotate(-45deg);cursor:pointer;`
+
+          const fmt = v => formatCurrency(v, owner.country_code || 'IN')
+          const shopTitle = owner.shop_name || (owner.societies ? `${owner.societies.name} Print Shop` : owner.name)
+          const slug = owner._slug
+          const badge = isShop ? '🏪 Print Shop' : '🏠 Home Owner'
+          const badgeBg = isShop ? '#ede9fe' : '#fff7ed'
+          const badgeClr = isShop ? '#7C3AED' : '#FF6B35'
+
+          const popupHtml = `<div style="min-width:180px;font-family:Inter,sans-serif;">
+  <span style="font-size:11px;font-weight:700;padding:2px 6px;border-radius:100px;background:${badgeBg};color:${badgeClr};display:inline-block;margin-bottom:6px;">${badge}</span>
+  <p style="font-weight:700;font-size:13px;color:#0A0A0F;line-height:1.3;margin:0 0 2px">${shopTitle}</p>
+  <p style="font-size:11px;color:#6B7280;margin:0 0 8px">by ${owner.name.split(' ')[0]}</p>
+  <div style="display:flex;gap:6px;font-size:11px;flex-wrap:wrap;margin-bottom:${slug ? '8' : '0'}px">
+    <span style="background:#F4F3FF;padding:2px 8px;border-radius:100px;">B&amp;W ${fmt(owner.bw_rate)}/pg</span>
+    <span style="background:#F4F3FF;padding:2px 8px;border-radius:100px;">Colour ${fmt(owner.color_rate)}/pg</span>
+  </div>
+  ${slug ? `<a href="/${slug}" data-back="1" style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #E5E7EB;padding-top:8px;font-size:12px;font-weight:600;color:#7C3AED;text-decoration:none;"><span>Order here</span><span>→</span></a>` : ''}
+</div>`
+
+          const popup = ola.addPopup({ closeButton: false, offset: 25 }).setHTML(popupHtml)
+          ola.addMarker({ element: el }).setLngLat(pos).setPopup(popup).addTo(map)
+        }
+
+        // Delivery radius circles for print shops
+        const circleFeatures = displayed
+          .filter(o => o.provider_type === 'shop' && o.lat && o.lng && o.delivery_fee_tiers?.length)
+          .map(o => circleFeature(o.lng, o.lat, Math.max(...o.delivery_fee_tiers.map(t => t.max_km))))
+
+        if (circleFeatures.length > 0) {
+          map.addSource('delivery-circles', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: circleFeatures },
+          })
+          map.addLayer({ id: 'delivery-circles-fill', type: 'fill', source: 'delivery-circles', paint: { 'fill-color': '#7C3AED', 'fill-opacity': 0.06 } })
+          map.addLayer({ id: 'delivery-circles-stroke', type: 'line', source: 'delivery-circles', paint: { 'line-color': '#7C3AED', 'line-width': 1.5, 'line-dasharray': [4, 4], 'line-opacity': 0.5 } })
+        }
+
+        // Track back URL when a popup order link is clicked
+        map.getContainer().addEventListener('click', e => {
+          if (e.target.closest('[data-back]')) sessionStorage.setItem('find_back', backHref)
+        })
+      } catch (err) {
+        console.error('[Find] map init error:', err)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      try { mapInstanceRef.current?.remove() } catch { /* ignore */ }
+      mapInstanceRef.current = null
+      olaMapsRef.current = null
+    }
+  }, [viewMode, displayed, mapCenter, isGpsMode, userLat, userLng, pincodeLatLng, backHref]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="min-h-screen bg-bg flex flex-col">
       <AppNav back="/" />
@@ -284,7 +383,7 @@ export default function Find() {
                   key={f}
                   onClick={() => setFilter(f)}
                   className={[
-                    'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold transition-colors min-h-[40px]',
+                    'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold transition-colors min-h-[44px]',
                     filter === f
                       ? 'bg-violet text-white'
                       : 'bg-surface text-muted border border-border hover:border-violet/40'
@@ -304,7 +403,7 @@ export default function Find() {
                 onClick={() => setViewMode('list')}
                 title={t('find.view_list')}
                 className={[
-                  'flex items-center justify-center px-2.5 rounded-lg transition-colors min-h-[36px] min-w-[36px]',
+                  'flex items-center justify-center px-2.5 rounded-lg transition-colors min-h-[44px] min-w-[44px]',
                   viewMode === 'list' ? 'bg-violet text-white' : 'text-muted hover:text-ink'
                 ].join(' ')}
               >
@@ -314,7 +413,7 @@ export default function Find() {
                 onClick={() => setViewMode('map')}
                 title={t('find.view_map')}
                 className={[
-                  'flex items-center justify-center px-2.5 rounded-lg transition-colors min-h-[36px] min-w-[36px]',
+                  'flex items-center justify-center px-2.5 rounded-lg transition-colors min-h-[44px] min-w-[44px]',
                   viewMode === 'map' ? 'bg-violet text-white' : 'text-muted hover:text-ink'
                 ].join(' ')}
               >
@@ -328,21 +427,21 @@ export default function Find() {
         {!loading && stats && (
           <div className="flex items-center gap-3 text-sm bg-surface rounded-xl px-4 py-3 shadow-card">
             {stats.home > 0 && (
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap">
                 <Home size={14} className="text-orange flex-shrink-0" />
                 <span className="font-semibold text-ink">{stats.home}</span>
                 <span className="text-muted">{stats.home === 1 ? 'home printer' : 'home printers'}</span>
               </span>
             )}
-            {stats.home > 0 && stats.shop > 0 && <span className="text-border">·</span>}
+            {stats.home > 0 && stats.shop > 0 && <span className="text-border flex-shrink-0">·</span>}
             {stats.shop > 0 && (
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap">
                 <Store size={14} className="text-violet flex-shrink-0" />
                 <span className="font-semibold text-ink">{stats.shop}</span>
                 <span className="text-muted">{stats.shop === 1 ? 'shop' : 'shops'}</span>
               </span>
             )}
-            <span className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+            <span className="flex items-center gap-1.5 ml-auto flex-shrink-0 whitespace-nowrap">
               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stats.openNow > 0 ? 'bg-green' : 'bg-muted/40'}`} />
               <span className={`font-semibold ${stats.openNow > 0 ? 'text-green' : 'text-muted'}`}>
                 {stats.openNow > 0 ? `${stats.openNow} open now` : 'None open now'}
@@ -390,96 +489,10 @@ export default function Find() {
           ))
         ) : (
           /* ── Map view ────────────────────────────────────────────────── */
-          <div className="rounded-xl overflow-hidden shadow-card" style={{ height: '500px' }}>
-            <MapContainer
-              center={mapCenter}
-              zoom={13}
-              style={{ height: '100%', width: '100%' }}
-              scrollWheelZoom={false}
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
-              />
-
-              {/* User location marker in GPS mode */}
-              {isGpsMode && userLat && userLng && (
-                <Marker position={[userLat, userLng]} icon={userIcon}>
-                  <Popup><p className="text-sm font-semibold">Your location</p></Popup>
-                </Marker>
-              )}
-
-              {displayed.map(owner => {
-                const isShop = owner.provider_type === 'shop'
-                const hasCords = owner.lat && owner.lng
-                const position = hasCords
-                  ? [owner.lat, owner.lng]
-                  : (pincodeLatLng || null)
-
-                if (!position) return null
-
-                const fmt = v => formatCurrency(v, owner.country_code || 'IN')
-                const shopTitle = owner.shop_name || (owner.societies ? `${owner.societies.name} Print Shop` : owner.name)
-
-                // Delivery radius for print shops: max tier distance in metres
-                const radiusM = isShop && owner.delivery_fee_tiers?.length
-                  ? Math.max(...owner.delivery_fee_tiers.map(t => t.max_km)) * 1000
-                  : null
-
-                return (
-                  <span key={owner.id}>
-                    <Marker
-                      position={position}
-                      icon={isShop ? shopIcon : homeIcon}
-                    >
-                      <Popup minWidth={200}>
-                        <div className="space-y-1.5 py-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                              isShop ? 'bg-violet/15 text-violet' : 'bg-orange/15 text-orange'
-                            }`}>
-                              {isShop ? '🏪 Print Shop' : '🏠 Home Owner'}
-                            </span>
-                          </div>
-                          <p className="font-bold text-sm text-ink leading-tight">{shopTitle}</p>
-                          <p className="text-xs text-muted">by {owner.name.split(' ')[0]}</p>
-                          <div className="flex gap-2 text-xs">
-                            <span className="bg-bg px-2 py-0.5 rounded-full">B&W {fmt(owner.bw_rate)}/pg</span>
-                            <span className="bg-bg px-2 py-0.5 rounded-full">Colour {fmt(owner.color_rate)}/pg</span>
-                          </div>
-                          {owner._slug && (
-                            <Link
-                              to={`/${owner._slug}`}
-                              onClick={() => sessionStorage.setItem('find_back', backHref)}
-                              className="flex items-center justify-between mt-2 pt-2 border-t border-border text-xs font-semibold text-violet hover:text-violet/70 transition-colors"
-                            >
-                              <span>{isShop ? t('find.order_cta') : t('find.order_home_cta')}</span>
-                              <span>→</span>
-                            </Link>
-                          )}
-                        </div>
-                      </Popup>
-                    </Marker>
-
-                    {/* Delivery radius circle for print shops */}
-                    {isShop && radiusM && hasCords && (
-                      <Circle
-                        center={position}
-                        radius={radiusM}
-                        pathOptions={{
-                          color:     '#7C3AED',
-                          fillColor: '#7C3AED',
-                          fillOpacity: 0.06,
-                          weight: 1.5,
-                          dashArray: '4 4',
-                        }}
-                      />
-                    )}
-                  </span>
-                )
-              })}
-            </MapContainer>
-          </div>
+          <div
+            ref={mapContainerRef}
+            className="rounded-xl overflow-hidden shadow-card h-80 sm:h-[500px]"
+          />
         )}
 
         {/* Map legend */}

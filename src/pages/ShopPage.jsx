@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -7,12 +7,7 @@ import {
   ScanLine, BookOpen, Camera, Star, Package, CheckCircle2, Truck, Info
 } from 'lucide-react'
 import { getEffectiveState } from '../lib/availability'
-import { MapContainer, TileLayer, Marker } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import iconUrl         from 'leaflet/dist/images/marker-icon.png'
-import iconRetinaUrl   from 'leaflet/dist/images/marker-icon-2x.png'
-import shadowUrl       from 'leaflet/dist/images/marker-shadow.png'
+import { OlaMaps, defaultStyleJson } from 'olamaps-web-sdk'
 import AppNav from '../components/AppNav'
 import Footer from '../components/Footer'
 import AddressAutocomplete from '../components/AddressAutocomplete'
@@ -29,9 +24,7 @@ import PriceBreakdown from '../components/PriceBreakdown'
 import UPIQRCode from '../components/UPIQRCode'
 import { getPaymentMethods } from '../payments/index'
 
-// Fix leaflet default icon paths broken by Vite bundling
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl })
+const OLA_KEY = import.meta.env.VITE_OLA_MAPS_API_KEY
 
 const STEPS = ['details', 'upload', 'options', 'payment']
 const STEP_LABELS = {
@@ -113,12 +106,15 @@ export default function ShopPage() {
           .maybeSingle()
 
         if (shopOwner && shopOwner.status !== 'inactive') {
-          setShopData({ owner: shopOwner, society: null })
+          // Fetch reliability before setting state so all updates batch into
+          // a single render — this ensures shopMapRef is attached when the
+          // map effect fires (ref is null while loading=true hides the div).
           const { data: rel } = await supabase
             .from('owner_reliability')
             .select('reliability_score, active_jobs_count, max_active_jobs, avg_response_minutes, completed_jobs')
             .eq('owner_id', shopOwner.id)
             .maybeSingle()
+          setShopData({ owner: shopOwner, society: null })
           setReliability(rel || null)
           const methods = getPaymentMethods(shopOwner.country_code, shopOwner)
           if (methods.length > 0) setForm(f => ({ ...f, payment_method: methods[0].id }))
@@ -131,6 +127,48 @@ export default function ShopPage() {
     }
     load()
   }, [slug])
+
+  const shopMapRef = useRef(null)
+  const shopMapInstanceRef = useRef(null)
+
+  useEffect(() => {
+    const lat = shopData?.owner?.lat
+    const lng = shopData?.owner?.lng
+    const isShop = shopData?.owner?.provider_type === 'shop'
+    if (!isShop || !lat || !lng) return
+
+    let cancelled = false
+    ;(async () => {
+      await new Promise(r => requestAnimationFrame(r))
+      if (cancelled || !shopMapRef.current) return
+      try {
+        const ola = new OlaMaps({ apiKey: OLA_KEY })
+        const map = await ola.init({
+          style: defaultStyleJson,
+          container: shopMapRef.current,
+          center: [lng, lat],
+          zoom: 16,
+          scrollZoom: false,
+          dragPan: false,
+          keyboard: false,
+          doubleClickZoom: false,
+          touchZoomRotate: false,
+          attributionControl: false,
+        })
+        if (cancelled) { try { map?.remove() } catch { /* ignore */ } ; return }
+        shopMapInstanceRef.current = map
+        ola.addMarker({ draggable: false }).setLngLat([lng, lat]).addTo(map)
+      } catch (err) {
+        console.error('[ShopPage] map init error:', err)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      try { shopMapInstanceRef.current?.remove() } catch { /* ignore */ }
+      shopMapInstanceRef.current = null
+    }
+  }, [shopData?.owner?.lat, shopData?.owner?.lng, shopData?.owner?.provider_type])
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
@@ -153,7 +191,9 @@ export default function ShopPage() {
   const feedbackList = owner.feedback || []
   const rating = feedbackList.length >= 3
     ? { avg: (feedbackList.reduce((s, f) => s + f.star_rating, 0) / feedbackList.length).toFixed(1), count: feedbackList.length }
-    : null
+    : feedbackList.length === 0
+      ? { avg: '5.0', count: 0 }
+      : null
 
   const paymentMethods = getPaymentMethods(countryCode, owner)
   const ratePerPage    = getRatePerPage(form.print_type, owner)
@@ -295,7 +335,8 @@ export default function ShopPage() {
           payment_method: form.payment_method,
           payment_status: 'pending',
           status: 'submitted',
-          delivery_pin: deliveryPin
+          delivery_pin: deliveryPin,
+          has_delivery_pin: true
         })
         .select()
         .single()
@@ -328,6 +369,18 @@ export default function ShopPage() {
       }
     }
     return owner.delivery_fee > 0 ? `Delivery ${fmt(owner.delivery_fee)}` : 'Free delivery'
+  }
+
+  // Short version for the 3-up rate tile — keeps text to one line
+  function deliveryTileCopy() {
+    if (isShop) {
+      const tiers = owner.delivery_fee_tiers
+      if (tiers?.length) {
+        const minFee = Math.min(...tiers.map(t => t.fee))
+        return minFee === 0 ? 'Free' : `From ${fmt(minFee)}`
+      }
+    }
+    return owner.delivery_fee > 0 ? fmt(owner.delivery_fee) : 'Free'
   }
 
   return (
@@ -414,16 +467,10 @@ export default function ShopPage() {
             </p>
           )}
 
-          {/* Rating + social proof */}
-          {(rating || completedJobs > 0) && (
-            <div className="mb-5 flex items-center gap-3 flex-wrap">
-              {rating && <StarDisplay rating={parseFloat(rating.avg)} count={rating.count} />}
-              {completedJobs > 0 && (
-                <span className="text-white/50 text-sm flex items-center gap-1.5">
-                  <Package size={13} className="text-white/40" />
-                  {completedJobs} orders delivered
-                </span>
-              )}
+          {/* Rating */}
+          {rating && (
+            <div className="mb-5">
+              <StarDisplay rating={parseFloat(rating.avg)} count={rating.count} className="text-white" />
             </div>
           )}
 
@@ -432,7 +479,7 @@ export default function ShopPage() {
             {[
               { label: 'B&W print',    value: `${fmt(owner.bw_rate)}/pg`,    bg: 'bg-violet/20',  border: 'border-violet/25' },
               { label: 'Colour print', value: `${fmt(owner.color_rate)}/pg`, bg: 'bg-orange/20',  border: 'border-orange/25' },
-              { label: 'Delivery',     value: deliveryHeaderCopy(),           bg: 'bg-sky/20',     border: 'border-sky/25'    },
+              { label: 'Delivery',     value: deliveryTileCopy(),             bg: 'bg-sky/20',     border: 'border-sky/25'    },
             ].map(c => (
               <div key={c.label} className={`${c.bg} border ${c.border} rounded-2xl px-2 py-3 text-center`}>
                 <p className="text-white font-bold text-sm leading-snug">{c.value}</p>
@@ -486,11 +533,6 @@ export default function ShopPage() {
                 {isOpen ? 'Open now · Accepting orders' : 'Currently closed · Not accepting orders'}
               </span>
             </div>
-            {avgMins != null && (
-              <span className="text-xs text-muted flex items-center gap-1 flex-shrink-0">
-                <Clock size={11} /> ~{Math.round(avgMins)} min
-              </span>
-            )}
           </div>
           {(completedJobs > 0 || reliabilityScore != null || avgMins != null) && (
             <div className="grid divide-x divide-border" style={{ gridTemplateColumns: `repeat(${[completedJobs > 0, reliabilityScore != null, avgMins != null].filter(Boolean).length}, 1fr)` }}>
@@ -576,22 +618,7 @@ export default function ShopPage() {
           {/* Map + address + contact */}
           {owner.lat && owner.lng ? (
             <div className="bg-surface rounded-2xl shadow-card overflow-hidden">
-              <div className="h-52">
-                <MapContainer
-                  center={[owner.lat, owner.lng]}
-                  zoom={16}
-                  scrollWheelZoom={false}
-                  dragging={false}
-                  touchZoom={false}
-                  doubleClickZoom={false}
-                  zoomControl={false}
-                  attributionControl={false}
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <Marker position={[owner.lat, owner.lng]} />
-                </MapContainer>
-              </div>
+              <div ref={shopMapRef} className="h-52" />
               <div className="p-4 space-y-3">
                 {owner.shop_address && (
                   <div>
@@ -605,20 +632,20 @@ export default function ShopPage() {
                 <div className="flex gap-2">
                   {owner.phone && (
                     <a href={`tel:${owner.phone}`}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg border border-border hover:bg-violet/5 transition-colors text-sm font-semibold text-ink min-h-[44px]">
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg border border-border hover:bg-violet/5 transition-colors text-sm font-semibold text-ink min-h-[48px]">
                       <Phone size={15} className="text-violet" />{t('shop.contact_call')}
                     </a>
                   )}
                   {owner.phone && (
                     <a href={`https://wa.me/${owner.phone.replace(/\D/g, '')}`}
                       target="_blank" rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg border border-border hover:bg-green/5 transition-colors text-sm font-semibold text-ink min-h-[44px]">
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg border border-border hover:bg-green/5 transition-colors text-sm font-semibold text-ink min-h-[48px]">
                       <MessageCircle size={15} className="text-green" />{t('shop.contact_whatsapp')}
                     </a>
                   )}
                   <a href={`https://www.google.com/maps/dir/?api=1&destination=${owner.lat},${owner.lng}`}
                     target="_blank" rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg border border-border hover:bg-sky/5 transition-colors text-sm font-semibold text-ink min-h-[44px]">
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg border border-border hover:bg-sky/5 transition-colors text-sm font-semibold text-ink min-h-[48px]">
                     <Navigation size={15} className="text-sky" />{t('shop.contact_directions')}
                   </a>
                 </div>
@@ -629,12 +656,12 @@ export default function ShopPage() {
               <p className="font-bold text-base text-ink">{t('shop.contact_title')}</p>
               <div className="flex gap-2">
                 <a href={`tel:${owner.phone}`}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg border border-border text-sm font-semibold text-ink min-h-[44px]">
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg border border-border text-sm font-semibold text-ink min-h-[48px]">
                   <Phone size={15} className="text-violet" />{t('shop.contact_call')}
                 </a>
                 <a href={`https://wa.me/${owner.phone.replace(/\D/g, '')}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg border border-border text-sm font-semibold text-ink min-h-[44px]">
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg border border-border text-sm font-semibold text-ink min-h-[48px]">
                   <MessageCircle size={15} className="text-green" />{t('shop.contact_whatsapp')}
                 </a>
               </div>
@@ -807,7 +834,7 @@ export default function ShopPage() {
                 <div className="flex gap-2 flex-wrap">
                   {country.paper_sizes.map(size => (
                     <button key={size} onClick={() => setField('paper_size', size)}
-                      className={['px-4 py-2 rounded-xl border-2 font-semibold text-sm transition-colors min-h-[44px]',
+                      className={['px-4 py-2 rounded-xl border-2 font-semibold text-sm transition-colors min-h-[48px]',
                         form.paper_size === size ? 'border-violet bg-violet/5 text-violet' : 'border-border bg-bg text-muted hover:border-violet/40'].join(' ')}>
                       {size}
                     </button>
@@ -890,16 +917,16 @@ export default function ShopPage() {
       <div className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-sm border-t border-border px-4 py-3 z-20">
         <div className="max-w-lg mx-auto flex gap-3">
           {step > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setStep(s => s - 1)} className="flex-shrink-0">
+            <Button variant="ghost" size="md" onClick={() => setStep(s => s - 1)} className="flex-shrink-0">
               Back
             </Button>
           )}
           {step < STEPS.length - 1 ? (
-            <Button size="sm" onClick={handleNext} className="flex-1">
+            <Button size="md" onClick={handleNext} className="flex-1">
               Continue
             </Button>
           ) : (
-            <Button size="sm" onClick={handleSubmit} loading={submitting} className="flex-1">
+            <Button size="md" onClick={handleSubmit} loading={submitting} className="flex-1">
               {submitting ? 'Placing order...' : t('shop.place_order', { amount: fmt(breakdown.total) })}
             </Button>
           )}

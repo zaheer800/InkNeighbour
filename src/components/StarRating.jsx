@@ -44,12 +44,16 @@ export default function StarRating({ value = 0, onChange, readOnly = false, size
  * Read-only star display for shop pages and search results.
  */
 export function StarDisplay({ rating, count, className = '' }) {
-  if (!rating || !count || count < 3) return null
+  if (!rating) return null
+  if (count > 0 && count < 3) return null
+
+  const displayRating = typeof rating === 'number' ? rating.toFixed(1) : rating
+  const suffix = count > 0 ? ` · ${count} ratings` : ' · New'
 
   return (
     <span className={`inline-flex items-center gap-1 text-sm font-semibold text-ink ${className}`}>
       <Star size={16} className="text-amber fill-amber" />
-      {rating.toFixed(1)} · {count} ratings
+      {displayRating}{suffix}
     </span>
   )
 }

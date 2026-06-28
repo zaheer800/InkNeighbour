@@ -8,10 +8,11 @@ import { useJobs } from '../hooks/useJobs'
 
 export default function JobCard({ job, onRefresh, shopSlug, deliveryTiers = [] }) {
   const { t } = useTranslation()
-  const { acceptJob, markPrinting, markDelivered, cancelJob, getSignedUrl } = useJobs()
+  const { acceptJob, markPrinting, markDelivered, cancelJob, verifyAndDeliver, getSignedUrl } = useJobs()
   const [downloading, setDownloading] = useState(false)
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState(false)
+  const [delivering, setDelivering] = useState(false)
   const [selectedTierKm, setSelectedTierKm] = useState(null)
 
   // Persisted per tab-session so navigating away and back doesn't reset it
@@ -231,7 +232,7 @@ export default function JobCard({ job, onRefresh, shopSlug, deliveryTiers = [] }
           </Button>
         )}
         {job.status === 'printing' && (
-          job.delivery_pin ? (
+          job.has_delivery_pin ? (
             <div className="flex-1 space-y-2">
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -252,12 +253,16 @@ export default function JobCard({ job, onRefresh, shopSlug, deliveryTiers = [] }
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => {
-                    if (pinInput === job.delivery_pin) {
-                      handleAction(markDelivered)
-                    } else {
+                  loading={delivering}
+                  onClick={async () => {
+                    setDelivering(true)
+                    const { error } = await verifyAndDeliver(job.id, pinInput)
+                    setDelivering(false)
+                    if (error) {
                       setPinError(true)
                       setPinInput('')
+                    } else {
+                      onRefresh?.()
                     }
                   }}
                 >
