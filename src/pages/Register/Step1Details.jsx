@@ -9,6 +9,7 @@ import Footer from '../../components/Footer'
 import ProviderTypeSelector from '../../components/ProviderTypeSelector'
 import { countryOptions, DEFAULT_COUNTRY, COUNTRIES } from '../../lib/countries'
 import { supabase } from '../../lib/supabase'
+import { signUpMetadata } from '../../lib/authProfile'
 
 const DIAL_OPTIONS = Object.values(COUNTRIES).map(c => ({
   countryCode: c.code,
@@ -121,7 +122,15 @@ export default function Step1Details() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email:    form.email,
         password: form.password,
-        options:  { emailRedirectTo: `${window.location.origin}/dashboard` },
+        options:  {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: signUpMetadata({
+            name: form.name,
+            phone: fullPhone,
+            provider_type: form.provider_type,
+            shop_name: form.provider_type === 'shop' ? form.shop_name : undefined,
+          }),
+        },
       })
 
       if (authError) {

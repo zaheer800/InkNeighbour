@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { supabase } from '../../lib/supabase'
+import { signUpMetadata } from '../../lib/authProfile'
 import { makeShopSlug } from '../../lib/slugify'
 import Footer from '../../components/Footer'
 
@@ -192,7 +193,15 @@ export default function Step3Rates() {
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email:    step1.email,
           password: step1.password,
-          options:  { emailRedirectTo: `${window.location.origin}/dashboard` }
+          options:  {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+            data: signUpMetadata({
+              name: step1.name,
+              phone: step1.phone,
+              provider_type: step1.provider_type,
+              shop_name: step1.provider_type === 'shop' ? step1.shop_name : undefined,
+            }),
+          }
         })
         if (authError) {
           if (authError.status === 422 || authError.message?.toLowerCase().includes('already registered')) {
