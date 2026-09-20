@@ -7,7 +7,7 @@ import {
   ScanLine, BookOpen, Camera, Star, Package, CheckCircle2, Truck, Info
 } from 'lucide-react'
 import { getEffectiveState } from '../lib/availability'
-import { OlaMaps, defaultStyleJson } from 'olamaps-web-sdk'
+import { createOlaMap } from '../lib/olaMap'
 import AppNav from '../components/AppNav'
 import Footer from '../components/Footer'
 import AddressAutocomplete from '../components/AddressAutocomplete'
@@ -24,7 +24,6 @@ import PriceBreakdown from '../components/PriceBreakdown'
 import UPIQRCode from '../components/UPIQRCode'
 import { getPaymentMethods } from '../payments/index'
 
-const OLA_KEY = import.meta.env.VITE_OLA_MAPS_API_KEY
 
 const STEPS = ['details', 'upload', 'options', 'payment']
 const STEP_LABELS = {
@@ -142,9 +141,7 @@ export default function ShopPage() {
       await new Promise(r => requestAnimationFrame(r))
       if (cancelled || !shopMapRef.current) return
       try {
-        const ola = new OlaMaps({ apiKey: OLA_KEY })
-        const map = await ola.init({
-          style: defaultStyleJson,
+        const { map, maplibregl } = await createOlaMap({
           container: shopMapRef.current,
           center: [lng, lat],
           zoom: 16,
@@ -153,11 +150,10 @@ export default function ShopPage() {
           keyboard: false,
           doubleClickZoom: false,
           touchZoomRotate: false,
-          attributionControl: false,
         })
         if (cancelled) { try { map?.remove() } catch { /* ignore */ } ; return }
         shopMapInstanceRef.current = map
-        ola.addMarker({ draggable: false }).setLngLat([lng, lat]).addTo(map)
+        new maplibregl.Marker({ draggable: false, color: '#7C3AED' }).setLngLat([lng, lat]).addTo(map)
       } catch (err) {
         console.error('[ShopPage] map init error:', err)
       }

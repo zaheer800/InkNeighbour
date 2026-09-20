@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   optimizeDeps: {
-    include: ['olamaps-web-sdk'],
+    include: ['maplibre-gl'],
     esbuildOptions: { target: 'es2022' },
   },
   plugins: [

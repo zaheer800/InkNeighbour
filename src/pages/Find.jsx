@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Printer, Home, Store, Filter, List, Map as MapIcon, LocateFixed } from 'lucide-react'
-import { OlaMaps, defaultStyleJson } from 'olamaps-web-sdk'
+import { createOlaMap } from '../lib/olaMap'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/countries'
 import { getEffectiveState, resolveNextAvailable } from '../lib/availability'
@@ -10,6 +10,10 @@ import Button from '../components/ui/Button'
 import Footer from '../components/Footer'
 import AppNav from '../components/AppNav'
 import ProviderCard from '../components/ProviderCard'
+
+// Popup content is HTML built from owner-entered text (shop and owner names), so it must be escaped.
+const escapeHtml = (v) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371
@@ -21,7 +25,6 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 }
 
 const GPS_RADIUS_KM = 5
-const OLA_KEY = import.meta.env.VITE_OLA_MAPS_API_KEY
 
 function circleFeature(centerLng, centerLat, radiusKm) {
   const pts = 64
@@ -245,7 +248,6 @@ export default function Find() {
     : `/find?pincode=${pincode}`
 
   const mapContainerRef = useRef(null)
-  const olaMapsRef = useRef(null)
   const mapInstanceRef = useRef(null)
 
   useEffect(() => {
@@ -256,30 +258,24 @@ export default function Find() {
       await new Promise(r => requestAnimationFrame(r))
       if (cancelled || !mapContainerRef.current) return
       try {
-        const ola = new OlaMaps({ apiKey: OLA_KEY })
-        olaMapsRef.current = ola
-        const map = await ola.init({
-          style: defaultStyleJson,
+        const { map, maplibregl, styleReady } = await createOlaMap({
           container: mapContainerRef.current,
           center: [mapCenter[1], mapCenter[0]],
           zoom: 13,
           scrollZoom: false,
-          attributionControl: false,
         })
         if (cancelled) { try { map?.remove() } catch { /* ignore */ } ; return }
         mapInstanceRef.current = map
 
         // Wait for style before adding sources/layers
-        if (!map.isStyleLoaded()) {
-          await new Promise(r => map.once('load', r))
-        }
+        await styleReady
         if (cancelled) return
 
         // User location dot in GPS mode
         if (isGpsMode && userLat && userLng) {
           const el = document.createElement('div')
           el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#FF6B35;border:3px solid white;box-shadow:0 0 0 4px rgba(255,107,53,0.3);'
-          ola.addMarker({ element: el }).setLngLat([userLng, userLat]).addTo(map)
+          new maplibregl.Marker({ element: el }).setLngLat([userLng, userLat]).addTo(map)
         }
 
         // Provider markers + popups
@@ -304,17 +300,17 @@ export default function Find() {
 
           const popupHtml = `<div style="min-width:180px;font-family:Inter,sans-serif;">
   <span style="font-size:11px;font-weight:700;padding:2px 6px;border-radius:100px;background:${badgeBg};color:${badgeClr};display:inline-block;margin-bottom:6px;">${badge}</span>
-  <p style="font-weight:700;font-size:13px;color:#0A0A0F;line-height:1.3;margin:0 0 2px">${shopTitle}</p>
-  <p style="font-size:11px;color:#6B7280;margin:0 0 8px">by ${owner.name.split(' ')[0]}</p>
+  <p style="font-weight:700;font-size:13px;color:#0A0A0F;line-height:1.3;margin:0 0 2px">${escapeHtml(shopTitle)}</p>
+  <p style="font-size:11px;color:#6B7280;margin:0 0 8px">by ${escapeHtml(String(owner.name ?? '').split(' ')[0])}</p>
   <div style="display:flex;gap:6px;font-size:11px;flex-wrap:wrap;margin-bottom:${slug ? '8' : '0'}px">
-    <span style="background:#F4F3FF;padding:2px 8px;border-radius:100px;">B&amp;W ${fmt(owner.bw_rate)}/pg</span>
-    <span style="background:#F4F3FF;padding:2px 8px;border-radius:100px;">Colour ${fmt(owner.color_rate)}/pg</span>
+    <span style="background:#F4F3FF;padding:2px 8px;border-radius:100px;">B&amp;W ${escapeHtml(fmt(owner.bw_rate))}/pg</span>
+    <span style="background:#F4F3FF;padding:2px 8px;border-radius:100px;">Colour ${escapeHtml(fmt(owner.color_rate))}/pg</span>
   </div>
-  ${slug ? `<a href="/${slug}" data-back="1" style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #E5E7EB;padding-top:8px;font-size:12px;font-weight:600;color:#7C3AED;text-decoration:none;"><span>Order here</span><span>→</span></a>` : ''}
+  ${slug ? `<a href="/${encodeURIComponent(slug)}" data-back="1" style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #E5E7EB;padding-top:8px;font-size:12px;font-weight:600;color:#7C3AED;text-decoration:none;"><span>Order here</span><span>→</span></a>` : ''}
 </div>`
 
-          const popup = ola.addPopup({ closeButton: false, offset: 25 }).setHTML(popupHtml)
-          ola.addMarker({ element: el }).setLngLat(pos).setPopup(popup).addTo(map)
+          const popup = new maplibregl.Popup({ closeButton: false, offset: 25 }).setHTML(popupHtml)
+          new maplibregl.Marker({ element: el }).setLngLat(pos).setPopup(popup).addTo(map)
         }
 
         // Delivery radius circles for print shops

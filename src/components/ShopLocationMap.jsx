@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { OlaMaps, defaultStyleJson } from 'olamaps-web-sdk'
+import { createOlaMap } from '../lib/olaMap'
 import { MapPin, Search, X, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -87,7 +87,6 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
   const mapContainerRef = useRef(null)
   const mapRef          = useRef(null)
   const markerRef       = useRef(null)
-  const olaMapsRef      = useRef(null)
   const resolvedRef     = useRef(resolved)
 
   useEffect(() => { resolvedRef.current = resolved }, [resolved])
@@ -143,8 +142,7 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
       return
     }
 
-    // index.js entry-point wraps OlaMaps with an async init() that dynamically
-    // imports the real SDK bundle. We must await it before calling addMarker().
+    // MapLibre is loaded on demand (see lib/olaMap.js), so creating the map is async.
     let cancelled = false
 
     ;(async () => {
@@ -154,25 +152,18 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
       if (cancelled) return
 
       try {
-        const ola = new OlaMaps({ apiKey: OLA_KEY })
-        olaMapsRef.current = ola
-
-        // attributionControl:false stops MapLibre's built-in control from calling
-        // map._getUIString() which is unavailable on the SDK's map proxy.
-        const map = await ola.init({
-          style: defaultStyleJson,
+        const { map, maplibregl } = await createOlaMap({
           container: mapContainerRef.current,
           center: [resolved.lng, resolved.lat],
           zoom: 16,
           scrollZoom: false,
-          attributionControl: false,
         })
 
         if (cancelled) { try { map?.remove() } catch { /* ignore */ }; return }
 
         mapRef.current = map
 
-        const marker = ola.addMarker({ draggable: true })
+        const marker = new maplibregl.Marker({ draggable: true, color: '#7C3AED' })
           .setLngLat([resolved.lng, resolved.lat])
           .addTo(map)
         markerRef.current = marker
