@@ -46,7 +46,7 @@ export default function ShopPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const [form, setForm] = useState({
-    customer_name: '', customer_flat: '', customer_phone: '',
+    customer_name: '', customer_flat: '', customer_phone: '', whatsapp_optin: false,
     file: null, pageCount: null, fileName: '',
     print_type: 'bw', paper_size: 'A4', copies: 1, sides: 'single',
     notes: '', payment_method: '',
@@ -305,20 +305,17 @@ export default function ShopPage() {
         if (uploadErr) throw uploadErr
       }
 
-      const { count } = await supabase.from('jobs').select('id', { count: 'exact', head: true })
-      const jobNumber = `INK-${String((count || 0) + 1).padStart(4, '0')}`
-
       const deliveryPin = String(Math.floor(1000 + Math.random() * 9000))
       const { data: job, error: jobErr } = await supabase
         .from('jobs')
         .insert({
           id: jobId,
-          job_number: jobNumber,
           owner_id: owner.id,
           society_id: society?.id || null,
           customer_name: form.customer_name,
           customer_flat: form.customer_flat,
           customer_phone: form.customer_phone || null,
+          customer_whatsapp_optin: !!form.whatsapp_optin,
           file_path: filePath,
           file_name: form.file?.name || null,
           page_count: form.pageCount,
@@ -766,6 +763,7 @@ export default function ShopPage() {
                 <Input label={`${country.flat_label} number`} value={form.customer_flat} onChange={e => setField('customer_flat', e.target.value)} error={errors.customer_flat} placeholder="e.g. B-302" required />
               )}
               <Input label={t('shop.phone_label')} type="tel" value={form.customer_phone} onChange={e => setField('customer_phone', e.target.value)} error={errors.customer_phone} placeholder="For delivery updates" required />
+              <label className="flex items-start gap-2 text-sm text-ink"><input type="checkbox" className="mt-1" checked={form.whatsapp_optin} onChange={e => setField('whatsapp_optin', e.target.checked)} /><span>Send my order updates on WhatsApp</span></label>
             </>
           )}
 
