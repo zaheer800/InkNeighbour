@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AI assistant guide for the InkNeighbour codebase. Read this before making any changes.
 
+> `docs/*.md` changes in commits are auto-mirrored to ContextForge (project "inkneighbour") via the `.githooks/post-commit` hook, which reads a token from `~/.config/contextforge/upload_token` (shared across projects on this VM, not in any repo) and no-ops silently if that file does not exist yet.
+
 ---
 
 ## Project Overview
