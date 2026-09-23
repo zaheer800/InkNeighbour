@@ -1,0 +1,109 @@
+name: PR Review
+
+# Triggers on both pull_request and push, all branches (unlike ci.yml, which
+# is main-only). This is a scanning/review gateway, not a merge-blocking build.
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  # Three scanners run as parallel matrix legs of one logical job (GitHub
+  # Actions steps within a single job always run sequentially — a matrix is
+  # what gives real parallelism here). None of the three need a new secret.
+  code-quality-gateway:
+    name: code-quality-gateway (${{ matrix.tool }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [semgrep, gitleaks, trivy]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Semgrep
+        if: matrix.tool == 'semgrep'
+        uses: semgrep/semgrep-action@v1
+        with:
+          # p/ci is Semgrep's default free OSS ruleset bundle — no
+          # SEMGREP_APP_TOKEN / Semgrep Cloud login required.
+          config: p/ci
+          generateSarif: "1"
+
+      - name: Upload Semgrep SARIF
+        if: matrix.tool == 'semgrep'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+
+      - name: Gitleaks
+        if: matrix.tool == 'gitleaks'
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          # GITHUB_TOKEN is the default token GitHub injects automatically —
+          # not a new secret that needs to be added.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trivy
+        if: matrix.tool == 'trivy'
+        uses: aquasecurity/trivy-action@master
+        with:
+          # Filesystem/dependency scan — no container image to scan in this
+          # web app repo.
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH,MEDIUM
+
+  # GitHub Actions does not allow the `secrets` context inside a job-level
+  # `if:` (only inside step-level if/env/with) — actionlint flags it as an
+  # invalid context. This tiny job does the secret check at step level,
+  # where `secrets` is allowed, and exposes the result as a job output so
+  # the pr-agent job below can gate on it.
+  check-secrets:
+    name: check-secrets
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    outputs:
+      has-openrouter-key: ${{ steps.check.outputs.has-openrouter-key }}
+    steps:
+      - name: Check OPENROUTER__KEY secret is set
+        id: check
+        run: echo "has-openrouter-key=${{ secrets.OPENROUTER__KEY != '' }}" >> "$GITHUB_OUTPUT"
+
+  # Uses PR-Agent (qodo-ai/pr-agent) with OpenRouter as the model backend
+  # instead of a paid OpenAI/Semgrep-cloud key.
+  #
+  # IMPORTANT: this job needs a repo secret named OPENROUTER__KEY (an
+  # OpenRouter API key) added via GitHub repo Settings -> Secrets and
+  # variables -> Actions before it will do anything. Until that secret is
+  # added, the `if:` guard below evaluates false and the job is skipped
+  # cleanly (shows as "skipped", not "failed") rather than hard-failing the
+  # workflow.
+  pr-agent:
+    name: pr-agent
+    needs: check-secrets
+    runs-on: ubuntu-latest
+    if: needs.check-secrets.outputs.has-openrouter-key == 'true'
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: PR Agent
+        uses: qodo-ai/pr-agent@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENROUTER__KEY: ${{ secrets.OPENROUTER__KEY }}
+          CONFIG__MODEL: openrouter/nvidia/nemotron-3-super-120b-a12b:free
