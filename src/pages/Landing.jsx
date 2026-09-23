@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   MapPin, LocateFixed, Loader2, Upload, Package,
-  CheckCircle, Home, Store, Star, Clock, Printer,
-  ArrowRight, ChevronRight, Zap, Shield, IndianRupee
+  CheckCircle, Home, Store, Star,
+  ArrowRight, Zap, Shield, IndianRupee
 } from 'lucide-react'
 
 /* ── Mock provider cards shown in the directory preview ── */
@@ -272,7 +272,7 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <span className="inline-block bg-orange/10 text-orange text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4 border border-orange/15">
-              Who you'll find
+              Who you&apos;ll find
             </span>
             <h2 className="font-display font-black text-ink text-3xl sm:text-4xl mb-3">
               Two types of providers.<br className="hidden sm:block" /> One place to find them.

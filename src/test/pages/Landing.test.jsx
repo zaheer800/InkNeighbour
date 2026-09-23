@@ -28,7 +28,7 @@ describe('Landing page', () => {
 
   it('renders the hero subtitle', () => {
     renderLanding()
-    expect(screen.getByText(/Find a home printer in your building/i)).toBeInTheDocument()
+    expect(screen.getByText(/Browse home printer owners and local print shops near you/i)).toBeInTheDocument()
   })
 
   it('renders the pincode input', () => {
@@ -58,26 +58,26 @@ describe('Landing page', () => {
 
   it('renders a link to /register', () => {
     renderLanding()
-    // Both nav and owner CTA section have links to /register
-    const registerLinks = screen.getAllByRole('link', { name: /register/i })
+    // The provider CTA cards link to /register
+    const registerLinks = screen.getAllByRole('link').filter(l => l.getAttribute('href') === '/register')
     expect(registerLinks.length).toBeGreaterThan(0)
   })
 
   it('renders the How it Works section', () => {
     renderLanding()
-    expect(screen.getByText('landing.how_title')).toBeInTheDocument()
+    expect(screen.getByText(/how it works/i)).toBeInTheDocument()
   })
 
   it('renders 3 how-it-works steps', () => {
     renderLanding()
-    expect(screen.getByText('landing.step1_title')).toBeInTheDocument()
-    expect(screen.getByText('landing.step2_title')).toBeInTheDocument()
-    expect(screen.getByText('landing.step3_title')).toBeInTheDocument()
+    expect(screen.getByText('Find')).toBeInTheDocument()
+    expect(screen.getByText('Upload')).toBeInTheDocument()
+    expect(screen.getByText('Receive')).toBeInTheDocument()
   })
 
   it('renders the owner CTA section', () => {
     renderLanding()
-    expect(screen.getByText('landing.owners_title')).toBeInTheDocument()
+    expect(screen.getByText(/for providers/i)).toBeInTheDocument()
   })
 
   it('renders the footer with current year', () => {
@@ -87,11 +87,11 @@ describe('Landing page', () => {
 
   it('renders Privacy Policy link in footer', () => {
     renderLanding()
-    expect(screen.getByRole('link', { name: /privacy policy/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /privacy/i })).toBeInTheDocument()
   })
 
   it('renders Terms of Service link in footer', () => {
     renderLanding()
-    expect(screen.getByRole('link', { name: /terms of service/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /terms/i })).toBeInTheDocument()
   })
 })

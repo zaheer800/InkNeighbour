@@ -43,7 +43,7 @@ export default function Step1Details() {
         }
         return parsed
       }
-    } catch {}
+    } catch { /* ignore */ }
     return DEFAULT_FORM
   })
 
@@ -225,11 +225,12 @@ export default function Step1Details() {
 
             {/* Phone with dial-code selector */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-base font-semibold text-ink">
+              <label htmlFor="reg-phone" className="text-base font-semibold text-ink">
                 {t('register.phone_label')} <span className="text-red">*</span>
               </label>
               <div className={`flex rounded-xl border ${errors.phone ? 'border-red' : 'border-border'} overflow-hidden focus-within:ring-2 focus-within:ring-violet/40 focus-within:border-violet`}>
                 <select
+                  aria-label="Country dial code"
                   value={form.phoneDial}
                   onChange={e => set('phoneDial', e.target.value)}
                   className="shrink-0 bg-bg text-ink text-base font-semibold px-3 min-h-[52px] border-r border-border focus:outline-none"
@@ -239,6 +240,7 @@ export default function Step1Details() {
                   ))}
                 </select>
                 <input
+                  id="reg-phone"
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"

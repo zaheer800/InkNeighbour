@@ -37,6 +37,10 @@ vi.mock('../lib/supabase', () => ({
       signUp: vi.fn().mockResolvedValue({ data: { user: { id: 'uid-test' } }, error: null }),
       signOut: vi.fn().mockResolvedValue({})
     },
+    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    functions: {
+      invoke: vi.fn().mockResolvedValue({ data: null, error: null })
+    },
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnThis(),
       insert: vi.fn().mockReturnThis(),

@@ -92,6 +92,8 @@ export default function Step3Rates() {
       ? (p1.shop_name || '')
       : (p2.society?.name ? `${p2.society.name} Print Shop` : '')
 
+    setForm(f => ({ ...f, shop_name: defaultShopName }))
+
     supabase.from('platform_config').select('key, value').then(({ data: config }) => {
       if (!config?.length) return
       const get = (key, fallback) => {
@@ -105,7 +107,6 @@ export default function Step3Rates() {
 
       setForm(f => ({
         ...f,
-        shop_name:       defaultShopName,
         bw_rate:         (bw  / 100).toString(),
         color_rate:      (col / 100).toString(),
         delivery_fee:    (del / 100).toString(),

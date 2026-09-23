@@ -37,7 +37,7 @@ describe('Step2Society — rendering', () => {
     sessionStorage.setItem('reg_step1', JSON.stringify(STEP1))
     renderStep2()
     await waitFor(() =>
-      expect(screen.getByPlaceholderText(/enter your pincode/i)).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('register.postal_code_placeholder')).toBeInTheDocument()
     )
   })
 })
@@ -48,15 +48,15 @@ describe('Step2Society — postal code validation', () => {
 
   it('does NOT show SocietySearch for a short postal code', async () => {
     renderStep2()
-    await waitFor(() => screen.getByPlaceholderText(/enter your pincode/i))
-    await userEvent.type(screen.getByPlaceholderText(/enter your pincode/i), '110')
+    await waitFor(() => screen.getByPlaceholderText('register.postal_code_placeholder'))
+    await userEvent.type(screen.getByPlaceholderText('register.postal_code_placeholder'), '110')
     expect(screen.queryByText(/register\.search_societies/i)).not.toBeInTheDocument()
   })
 
   it('shows SocietySearch once postal code reaches 5 characters', async () => {
     renderStep2()
-    await waitFor(() => screen.getByPlaceholderText(/enter your pincode/i))
-    await userEvent.type(screen.getByPlaceholderText(/enter your pincode/i), '11000')
+    await waitFor(() => screen.getByPlaceholderText('register.postal_code_placeholder'))
+    await userEvent.type(screen.getByPlaceholderText('register.postal_code_placeholder'), '11000')
     await waitFor(() =>
       expect(screen.getByText('register.search_societies')).toBeInTheDocument()
     )
@@ -67,23 +67,19 @@ describe('Step2Society — society selection', () => {
   beforeEach(() => {
     sessionStorage.setItem('reg_step1', JSON.stringify(STEP1))
     const societies = [
-      { id: 'soc-1', name: 'Green Valley', slug: 'green-valley-110001', city: 'Delhi', state: 'DL', owners: [] }
+      { id: 'soc-1', name: 'Green Valley', slug: 'green-valley-110001', city: 'Delhi', state: 'DL', is_taken: false, owner_name: null }
     ]
-    const chain = {
-      select: vi.fn(),
-      eq: vi.fn(),
-      then: (resolve) => Promise.resolve({ data: societies, error: null }).then(resolve),
-    }
-    chain.select.mockReturnValue(chain)
-    chain.eq.mockReturnValue(chain)
-    vi.mocked(supabase.from).mockReturnValue(chain)
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: societies, error: null })
+    // Step2Society geocodes the postal code via a real fetch() to Nominatim on selection —
+    // stub it so tests don't make a network call.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: () => Promise.resolve([]) }))
   })
-  afterEach(() => { sessionStorage.clear(); vi.clearAllMocks() })
+  afterEach(() => { sessionStorage.clear(); vi.clearAllMocks(); vi.unstubAllGlobals() })
 
   it('writes reg_step2 to sessionStorage and navigates to /register/rates on selection', async () => {
     renderStep2()
-    await waitFor(() => screen.getByPlaceholderText(/enter your pincode/i))
-    await userEvent.type(screen.getByPlaceholderText(/enter your pincode/i), '110001')
+    await waitFor(() => screen.getByPlaceholderText('register.postal_code_placeholder'))
+    await userEvent.type(screen.getByPlaceholderText('register.postal_code_placeholder'), '110001')
 
     await waitFor(() => screen.getByText('register.search_societies'))
     await userEvent.click(screen.getByText('register.search_societies'))

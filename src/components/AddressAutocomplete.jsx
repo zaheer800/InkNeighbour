@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, Loader2, Check, MapPin, LocateFixed, ChevronRight } from 'lucide-react'
+import { X, Loader2, Check, MapPin, LocateFixed } from 'lucide-react'
 
 const OLA_KEY = import.meta.env.VITE_OLA_MAPS_API_KEY
 const OLA_BASE = 'https://api.olamaps.io/places/v1'

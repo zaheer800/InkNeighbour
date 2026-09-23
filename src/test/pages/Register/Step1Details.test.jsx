@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Step1Details from '../../../pages/Register/Step1Details'
@@ -14,6 +14,10 @@ function renderStep1() {
   return render(<MemoryRouter><Step1Details /></MemoryRouter>)
 }
 
+async function selectProviderType() {
+  await userEvent.click(screen.getAllByRole('radio')[0])
+}
+
 describe('Step1Details — rendering', () => {
   it('shows step 1 of 3 progress indicator', () => {
     renderStep1()
@@ -26,7 +30,7 @@ describe('Step1Details — rendering', () => {
     expect(screen.getByLabelText(/register\.phone_label/)).toBeInTheDocument()
     expect(screen.getByLabelText(/register\.email_label/)).toBeInTheDocument()
     expect(screen.getByLabelText(/register\.password_label/)).toBeInTheDocument()
-    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0)
   })
 
   it('renders a Next button', () => {
@@ -72,7 +76,7 @@ describe('Step1Details — validation', () => {
     await userEvent.type(screen.getByLabelText(/register\.email_label/), 'a@b.com')
     await userEvent.type(screen.getByLabelText(/register\.password_label/), 'abc')
     await userEvent.click(screen.getByRole('button', { name: /common\.next/i }))
-    expect(await screen.findByText(/at least 6 characters/i)).toBeInTheDocument()
+    expect(await screen.findByText('register.validation_password_min')).toBeInTheDocument()
   })
 })
 
@@ -84,6 +88,7 @@ describe('Step1Details — successful submit', () => {
 
   it('writes form data to sessionStorage.reg_step1 and navigates to /register/society', async () => {
     renderStep1()
+    await selectProviderType()
     await userEvent.type(screen.getByLabelText(/register\.name_label/), 'Zaheer Ahmed')
     await userEvent.type(screen.getByLabelText(/register\.phone_label/), '9876543210')
     await userEvent.type(screen.getByLabelText(/register\.email_label/), 'zaheer@test.com')
@@ -95,7 +100,7 @@ describe('Step1Details — successful submit', () => {
     const stored = JSON.parse(sessionStorage.getItem('reg_step1'))
     expect(stored).toMatchObject({
       name: 'Zaheer Ahmed',
-      phone: '9876543210',
+      phone: '+919876543210',
       email: 'zaheer@test.com',
       password: 'securepass',
       country_code: 'IN'
@@ -104,6 +109,7 @@ describe('Step1Details — successful submit', () => {
 
   it('accepts a valid 10-digit mobile number starting with 9', async () => {
     renderStep1()
+    await selectProviderType()
     await userEvent.type(screen.getByLabelText(/register\.name_label/), 'Test')
     await userEvent.type(screen.getByLabelText(/register\.phone_label/), '9999999999')
     await userEvent.type(screen.getByLabelText(/register\.email_label/), 'x@y.com')

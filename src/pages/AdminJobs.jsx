@@ -6,7 +6,6 @@ import { useAuth } from '../hooks/useAuth'
 import { formatCurrency } from '../lib/countries'
 import AppNav from '../components/AppNav'
 import Footer from '../components/Footer'
-import Badge from '../components/ui/Badge'
 
 const STATUS_COLORS = {
   submitted:        'bg-amber/10 text-amber',

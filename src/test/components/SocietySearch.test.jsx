@@ -7,14 +7,7 @@ import { supabase } from '../../lib/supabase'
 const mockOnSelect = vi.fn()
 
 function mockSocieties(list) {
-  const chain = {
-    select: vi.fn(),
-    eq: vi.fn(),
-    then: (resolve) => Promise.resolve({ data: list, error: null }).then(resolve),
-  }
-  chain.select.mockReturnValue(chain)
-  chain.eq.mockReturnValue(chain)
-  vi.mocked(supabase.from).mockReturnValue(chain)
+  vi.mocked(supabase.rpc).mockResolvedValue({ data: list, error: null })
 }
 
 function renderSearch(props = {}) {
@@ -40,9 +33,9 @@ describe('SocietySearch — initial state', () => {
 describe('SocietySearch — after search with results', () => {
   beforeEach(() => {
     mockSocieties([
-      { id: 's-1', name: 'Green Valley', slug: 'green-valley', city: 'Delhi', state: 'DL', owners: [] },
+      { id: 's-1', name: 'Green Valley', slug: 'green-valley', city: 'Delhi', state: 'DL', is_taken: false, owner_name: null },
       { id: 's-2', name: 'Sunrise Heights', slug: 'sunrise-heights', city: 'Delhi', state: 'DL',
-        owners: [{ id: 'o-1', name: 'Amir Khan', status: 'active' }] }
+        is_taken: true, owner_name: 'Amir Khan' }
     ])
   })
 
@@ -132,7 +125,7 @@ describe('SocietySearch — manual entry flow', () => {
 describe('SocietySearch — fuzzy duplicate warning', () => {
   beforeEach(() => {
     mockSocieties([
-      { id: 's-1', name: 'Sunshine Apartments', slug: 'sunshine-apartments', city: 'Delhi', state: 'DL', owners: [] }
+      { id: 's-1', name: 'Sunshine Apartments', slug: 'sunshine-apartments', city: 'Delhi', state: 'DL', is_taken: false, owner_name: null }
     ])
   })
 

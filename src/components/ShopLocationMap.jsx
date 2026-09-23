@@ -159,7 +159,7 @@ export default function ShopLocationMap({ lat: initLat, lng: initLng, address: i
           scrollZoom: false,
         })
 
-        if (cancelled) { try { map?.remove() } catch { /* ignore */ }; return }
+        if (cancelled) { try { map?.remove() } catch { /* ignore */ } return }
 
         mapRef.current = map
 

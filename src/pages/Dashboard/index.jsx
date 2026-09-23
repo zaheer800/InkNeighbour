@@ -334,7 +334,7 @@ export default function DashboardJobs() {
           <div className="space-y-2">
             <h1 className="font-display text-2xl font-black text-ink">Shop setup incomplete</h1>
             <p className="text-muted text-base leading-relaxed">
-              Your account was created but the shop registration didn't finish.
+              Your account was created but the shop registration didn&apos;t finish.
               This happens when email confirmation is enabled in Supabase.
             </p>
           </div>
@@ -342,7 +342,7 @@ export default function DashboardJobs() {
             <p className="font-semibold text-ink">To fix this:</p>
             <ol className="list-decimal list-inside space-y-2 leading-relaxed">
               <li>Open <strong className="text-ink">Supabase Studio → Authentication → Providers → Email</strong></li>
-              <li>Turn off <strong className="text-ink">"Enable email confirmations"</strong> and save</li>
+              <li>Turn off <strong className="text-ink">&quot;Enable email confirmations&quot;</strong> and save</li>
               <li>Go to <strong className="text-ink">Authentication → Users</strong> and delete your current user</li>
               <li>Re-register at <strong className="text-ink">/register</strong></li>
             </ol>
@@ -541,7 +541,7 @@ export default function DashboardJobs() {
                   <h2 className="font-bold text-lg text-ink">Your shop is under review</h2>
                   <p className="text-muted text-sm mt-1 leading-relaxed">
                     Our team will approve your shop shortly — usually within a few hours.
-                    You'll be able to go live once approved.
+                    You&apos;ll be able to go live once approved.
                   </p>
                 </div>
               </div>

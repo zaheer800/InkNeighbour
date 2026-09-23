@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Printer, Zap, Clock, Users, Smartphone, Banknote,
   Copy as CopyIcon, Layers, Search, Phone, MessageCircle, Navigation, ShieldCheck,
-  ScanLine, BookOpen, Camera, Star, Package, CheckCircle2, Truck, Info
+  ScanLine, BookOpen, Camera, Package, CheckCircle2, Truck
 } from 'lucide-react'
 import { getEffectiveState } from '../lib/availability'
 import { createOlaMap } from '../lib/olaMap'
@@ -21,7 +21,6 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import UploadZone from '../components/UploadZone'
 import PriceBreakdown from '../components/PriceBreakdown'
-import UPIQRCode from '../components/UPIQRCode'
 import { getPaymentMethods } from '../payments/index'
 
 
@@ -151,7 +150,7 @@ export default function ShopPage() {
           doubleClickZoom: false,
           touchZoomRotate: false,
         })
-        if (cancelled) { try { map?.remove() } catch { /* ignore */ } ; return }
+        if (cancelled) { try { map?.remove() } catch { /* ignore */ } return }
         shopMapInstanceRef.current = map
         new maplibregl.Marker({ draggable: false, color: '#7C3AED' }).setLngLat([lng, lat]).addTo(map)
       } catch (err) {
@@ -350,18 +349,6 @@ export default function ShopPage() {
     } finally {
       setSubmitting(false)
     }
-  }
-
-  // ── Delivery copy for header ─────────────────────────────────────────────
-  function deliveryHeaderCopy() {
-    if (isShop) {
-      const tiers = owner.delivery_fee_tiers
-      if (tiers?.length) {
-        const minFee = Math.min(...tiers.map(t => t.fee))
-        return minFee === 0 ? 'Free delivery' : `Delivery from ${fmt(minFee)}`
-      }
-    }
-    return owner.delivery_fee > 0 ? `Delivery ${fmt(owner.delivery_fee)}` : 'Free delivery'
   }
 
   // Short version for the 3-up rate tile — keeps text to one line
@@ -588,7 +575,7 @@ export default function ShopPage() {
                 { n: '1', icon: Package,      text: 'Upload your document and choose B&W or colour' },
                 { n: '2', icon: Printer,      text: `${owner.name.split(' ')[0]} prints it right in ${society?.name || 'your building'}` },
                 { n: '3', icon: Truck,        text: 'Delivered to your door — usually within the hour' },
-              ].map(({ n, icon: Icon, text }) => (
+              ].map(({ n, text }) => (
                 <div key={n} className="flex items-center gap-3">
                   <span className="w-8 h-8 rounded-full bg-violet/10 text-violet text-xs font-bold flex items-center justify-center flex-shrink-0">
                     {n}
@@ -895,7 +882,7 @@ export default function ShopPage() {
                 </div>
               )}
               {form.payment_method === 'upi' && owner.upi_id && (
-                <p className="text-sm text-muted text-center">You'll be shown the UPI payment details after placing your order.</p>
+                <p className="text-sm text-muted text-center">You&apos;ll be shown the UPI payment details after placing your order.</p>
               )}
               {form.payment_method === 'cash' && (
                 <div className="bg-amber/10 border border-amber/30 rounded-xl p-3 text-sm text-amber font-medium">

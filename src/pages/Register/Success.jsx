@@ -62,7 +62,7 @@ export default function Success() {
             </div>
 
             <p className="text-xs text-muted">
-              Didn't receive it? Check your spam folder, or{' '}
+              Didn&apos;t receive it? Check your spam folder, or{' '}
               <Link to="/register" className="text-violet font-semibold hover:underline">start again</Link>.
             </p>
           </>
@@ -71,7 +71,7 @@ export default function Success() {
             <div className="space-y-2">
               <h1 className="font-display text-3xl font-black text-ink">Shop submitted!</h1>
               <p className="text-muted text-base leading-relaxed">
-                Your shop is under review. Once approved, we'll send your shop link directly to your WhatsApp number.
+                Your shop is under review. Once approved, we&apos;ll send your shop link directly to your WhatsApp number.
               </p>
             </div>
 

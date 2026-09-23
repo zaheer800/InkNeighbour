@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useOwner } from '../../hooks/useOwner'
-import { StarDisplay } from '../../components/StarRating'
 import StarRating from '../../components/StarRating'
 import AppNav from '../../components/AppNav'
 import DashboardNav from '../../components/DashboardNav'
@@ -106,7 +105,7 @@ export default function DashboardFeedback() {
                   </span>
                 </div>
                 {f.comment && (
-                  <p className="text-sm text-muted italic">"{f.comment}"</p>
+                  <p className="text-sm text-muted italic">&ldquo;{f.comment}&rdquo;</p>
                 )}
               </div>
             ))}

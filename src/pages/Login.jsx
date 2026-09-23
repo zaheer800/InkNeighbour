@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Printer, ArrowRight, Mail, Lock, ChevronLeft, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react'
+import { Printer, Mail, Lock, ChevronLeft, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import Button from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -68,7 +68,7 @@ export default function Login() {
         </div>
         <div className="relative z-10 bg-white/8 border border-white/10 rounded-2xl p-5 backdrop-blur-sm">
           <div className="flex gap-1 mb-3">{[...Array(5)].map((_, i) => <span key={i} className="text-amber text-sm">★</span>)}</div>
-          <p className="text-white/80 text-sm leading-relaxed">"I cover my ink costs every month now. Set it up once, print when neighbours ask — it's that simple."</p>
+          <p className="text-white/80 text-sm leading-relaxed">&ldquo;I cover my ink costs every month now. Set it up once, print when neighbours ask — it&apos;s that simple.&rdquo;</p>
           <p className="text-white/40 text-xs mt-3 font-semibold">Owner · Sunshine Apartments, Mumbai</p>
         </div>
       </div>
@@ -168,7 +168,7 @@ export default function Login() {
                 </button>
                 <div className="mb-8">
                   <h2 className="font-display text-2xl font-black text-ink">Reset password</h2>
-                  <p className="text-muted text-sm mt-1.5">Enter your email and we'll send a reset link.</p>
+                  <p className="text-muted text-sm mt-1.5">Enter your email and we&apos;ll send a reset link.</p>
                 </div>
                 <form onSubmit={handleForgot} className="space-y-4">
                   <div className="space-y-1.5">

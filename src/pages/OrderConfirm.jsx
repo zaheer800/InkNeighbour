@@ -157,7 +157,7 @@ export default function OrderConfirm() {
             <p className="text-5xl font-black font-mono tracking-[0.2em] text-ink">{job.delivery_pin}</p>
             <p className="text-sm text-muted leading-relaxed">
               Share this PIN with the owner when they arrive at your door.<br />
-              They'll need it to confirm delivery.
+              They&apos;ll need it to confirm delivery.
             </p>
           </div>
         )}

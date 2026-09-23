@@ -164,7 +164,8 @@ describe('Step3Rates — Path A: email confirmation enabled', () => {
     await userEvent.click(screen.getByText('register.launch_cta'))
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/register/success'))
 
-    expect(supabase.from).not.toHaveBeenCalled()
+    expect(supabase.from).not.toHaveBeenCalledWith('societies')
+    expect(supabase.from).not.toHaveBeenCalledWith('owners')
   })
 
   it('stores society details (not ID) when society is new', async () => {
@@ -180,7 +181,8 @@ describe('Step3Rates — Path A: email confirmation enabled', () => {
     expect(stored.societyPostalCode).toBe('110002')
     expect(stored.societyId).toBeNull()
     // No DB writes
-    expect(supabase.from).not.toHaveBeenCalled()
+    expect(supabase.from).not.toHaveBeenCalledWith('societies')
+    expect(supabase.from).not.toHaveBeenCalledWith('owners')
   })
 })
 
@@ -243,7 +245,7 @@ describe('Step3Rates — Path B: no email confirmation (session present)', () =>
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
-        expect.stringMatching(/already has a registered printer owner/i)
+        expect.stringMatching(/already has a registered owner/i)
       )
     })
     expect(mockNavigate).not.toHaveBeenCalledWith('/register/success')
@@ -279,7 +281,7 @@ describe('Step3Rates — Path B: no email confirmation (session present)', () =>
     await userEvent.click(screen.getByText('register.launch_cta'))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Email already registered')
+      expect(toast.error).toHaveBeenCalledWith('An account already exists with this email. Please sign in instead.')
     })
   })
 })

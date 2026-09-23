@@ -35,7 +35,7 @@ export default function Admin() {
   const [stats, setStats] = useState({ jobs_today: 0, gmv_month: 0 })
   const [defaults, setDefaults] = useState({ bw: '2', color: '5', delivery: '8' })
   const [emailStatus, setEmailStatus] = useState({}) // user_id → boolean
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [savingDefaults, setSavingDefaults] = useState(false)
   const [justApproved, setJustApproved] = useState(null)
   const [justRejected, setJustRejected] = useState(null)

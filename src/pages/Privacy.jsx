@@ -32,7 +32,7 @@ export default function Privacy() {
         <div className="bg-surface rounded-2xl shadow-card border border-border/60 p-6 sm:p-8 space-y-8">
 
           <Section title="Who we are">
-            <p>InkNeighbour ("we", "us", "our") is a platform that connects home printer owners with neighbours in the same residential society for on-demand printing services. Our website is at <strong>inkneighbour.zakapedia.in</strong>.</p>
+            <p>InkNeighbour (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a platform that connects home printer owners with neighbours in the same residential society for on-demand printing services. Our website is at <strong>inkneighbour.zakapedia.in</strong>.</p>
           </Section>
 
           <Section title="What information we collect">

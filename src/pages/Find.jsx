@@ -5,7 +5,7 @@ import { Printer, Home, Store, Filter, List, Map as MapIcon, LocateFixed } from 
 import { createOlaMap } from '../lib/olaMap'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/countries'
-import { getEffectiveState, resolveNextAvailable } from '../lib/availability'
+import { resolveNextAvailable } from '../lib/availability'
 import Button from '../components/ui/Button'
 import Footer from '../components/Footer'
 import AppNav from '../components/AppNav'
@@ -264,7 +264,7 @@ export default function Find() {
           zoom: 13,
           scrollZoom: false,
         })
-        if (cancelled) { try { map?.remove() } catch { /* ignore */ } ; return }
+        if (cancelled) { try { map?.remove() } catch { /* ignore */ } return }
         mapInstanceRef.current = map
 
         // Wait for style before adding sources/layers
@@ -340,9 +340,8 @@ export default function Find() {
       cancelled = true
       try { mapInstanceRef.current?.remove() } catch { /* ignore */ }
       mapInstanceRef.current = null
-      olaMapsRef.current = null
     }
-  }, [viewMode, displayed, mapCenter, isGpsMode, userLat, userLng, pincodeLatLng, backHref]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewMode, displayed, mapCenter, isGpsMode, userLat, userLng, pincodeLatLng, backHref])
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
