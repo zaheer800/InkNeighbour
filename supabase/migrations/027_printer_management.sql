@@ -115,11 +115,15 @@ create table if not exists printer_consumables (
   check ((source = 'unsupported') = (level_percentage is null))
 );
 create index if not exists printer_consumables_printer_time on printer_consumables (printer_id, observed_at desc);
+create index if not exists printer_consumables_key_time on printer_consumables (printer_id, consumable_type, colour, observed_at desc);
+create index if not exists printer_metrics_recorded on printer_metrics (recorded_at);
+create index if not exists printer_consumables_observed on printer_consumables (observed_at);
 
 create or replace view printer_current_consumables with (security_invoker = true) as
   select distinct on (printer_id, consumable_type, colour)
          printer_id, consumable_type, colour, level_percentage, source, observed_at
   from printer_consumables
+  where observed_at > now() - interval '90 days'
   order by printer_id, consumable_type, colour, observed_at desc;
 
 create table if not exists printer_alerts (

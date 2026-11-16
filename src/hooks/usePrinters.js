@@ -29,15 +29,18 @@ export function usePrinters() {
       accountRef.current = data
       setAccountId(data)
     }
-    const [a, p, c, al] = await Promise.all([
+    const [a, p, al] = await Promise.all([
       supabase.from('printer_agents')
         .select('id, device_name, agent_version, status, last_heartbeat_at, paired_at')
         .eq('account_id', account).order('paired_at', { ascending: false }),
       supabase.from('printers').select('*').eq('account_id', account).order('created_at'),
-      supabase.from('printer_current_consumables').select('*'),
       supabase.from('printer_alerts').select('*').eq('account_id', account)
         .in('status', ['open', 'acknowledged']).order('created_at', { ascending: false }),
     ])
+    const printerIds = (p.data ?? []).map((x) => x.id)
+    const c = printerIds.length
+      ? await supabase.from('printer_current_consumables').select('*').in('printer_id', printerIds)
+      : { data: [], error: null }
     const firstError = a.error || p.error || c.error || al.error
     setError(firstError ?? null)
     if (!firstError) {

@@ -140,11 +140,11 @@ async function handleTelemetry(agent: Agent, body: Record<string, unknown>) {
     else results.push({ printer_id: String((raw as Record<string, unknown>)?.printer_id ?? ''), accepted: false, error: v.error })
   }
 
-  for (const r of readings) {
+  const processReading = async (r: Reading): Promise<{ printer_id: string; accepted: boolean; error?: string }> => {
     const { data: printer } = await db.from('printers')
       .select('id, name, account_id, low_supply_threshold, last_seen_at')
       .eq('id', r.printerId).eq('account_id', agent.account_id).maybeSingle()
-    if (!printer) { results.push({ printer_id: r.printerId, accepted: false, error: 'unknown_printer' }); continue }
+    if (!printer) return { printer_id: r.printerId, accepted: false, error: 'unknown_printer' }
 
     const stale = printer.last_seen_at && new Date(printer.last_seen_at).getTime() > r.observedAt.getTime()
     if (!stale) {
@@ -171,7 +171,7 @@ async function handleTelemetry(agent: Agent, body: Record<string, unknown>) {
       }
     }
 
-    for (const c of r.consumables) {
+    await Promise.all(r.consumables.map(async (c) => {
       const { data: prev } = await db.from('printer_consumables').select('level_percentage, source, observed_at')
         .eq('printer_id', printer.id).eq('consumable_type', c.type).eq('colour', c.colour)
         .order('observed_at', { ascending: false }).limit(1).maybeSingle()
@@ -182,7 +182,7 @@ async function handleTelemetry(agent: Agent, body: Record<string, unknown>) {
           level_percentage: c.level, source: c.source, observed_at: r.observedAt.toISOString(),
         }))
       }
-    }
+    }))
 
     if (!stale) {
       const wanted = evaluateAlerts({
@@ -205,8 +205,23 @@ async function handleTelemetry(agent: Agent, body: Record<string, unknown>) {
       ]
       must(await db.rpc('printer_resolve_alerts', { p_printer: printer.id, p_keep: keep }))
     }
-    results.push({ printer_id: printer.id, accepted: true })
+    return { printer_id: printer.id, accepted: true }
   }
+
+  // Printers run in parallel; readings for the same printer stay in order. A failed write rejects only that printer.
+  const groups = new Map<string, Reading[]>()
+  for (const r of readings) groups.set(r.printerId, [...(groups.get(r.printerId) ?? []), r])
+  const settled = await Promise.all([...groups.values()].map(async (group) => {
+    const out: { printer_id: string; accepted: boolean; error?: string }[] = []
+    for (const r of group) {
+      try { out.push(await processReading(r)) } catch (e) {
+        console.error('telemetry write failed', e instanceof Error ? e.message : 'unknown')
+        out.push({ printer_id: r.printerId, accepted: false, error: 'write_failed' })
+      }
+    }
+    return out
+  }))
+  results.push(...settled.flat())
   return json(200, { ok: true, results })
 }
 
