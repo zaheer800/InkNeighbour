@@ -10,6 +10,7 @@ public sealed class WindowsPrinterSource : IPrinterSource
     public IReadOnlyList<PrinterInfo> GetPrinters()
     {
         var hosts = LoadPortHosts();
+        var jobs = LoadQueueDepths();
         var result = new List<PrinterInfo>();
         using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_Printer");
         foreach (ManagementObject p in searcher.Get())
@@ -31,7 +32,8 @@ public sealed class WindowsPrinterSource : IPrinterSource
                 result.Add(new PrinterInfo(
                     DeviceIdentifier: $"{Environment.MachineName}|{name}|{port}",
                     Name: name, Manufacturer: null, Model: driver, Connection: connection,
-                    IpAddress: ip, DriverInfo: driver, Status: status, StatusDetail: detail));
+                    IpAddress: ip, DriverInfo: driver, Status: status, StatusDetail: detail,
+                    QueuedJobs: jobs is null ? null : jobs.GetValueOrDefault(name)));
             }
         }
         return result;
@@ -46,6 +48,26 @@ public sealed class WindowsPrinterSource : IPrinterSource
             || port.StartsWith("PORTPROMPT") || port.StartsWith("XPSPORT")
             || driver is "microsoft print to pdf" or "microsoft xps document writer" or "microsoft shared fax driver"
             || driver.StartsWith("send to onenote") || driver.StartsWith("onenote");
+    }
+
+    // Jobs waiting in each Windows print queue. Null when the queue cannot be read, so "unknown" is never shown as 0.
+    private static Dictionary<string, int>? LoadQueueDepths()
+    {
+        try
+        {
+            var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            using var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_PrintJob");
+            foreach (ManagementObject job in searcher.Get())
+            {
+                using (job)
+                {
+                    var printer = QueueNameParser.PrinterOf(job["Name"] as string);
+                    if (printer is not null) map[printer] = map.GetValueOrDefault(printer) + 1;
+                }
+            }
+            return map;
+        }
+        catch (ManagementException) { return null; }
     }
 
     private static Dictionary<string, string> LoadPortHosts()

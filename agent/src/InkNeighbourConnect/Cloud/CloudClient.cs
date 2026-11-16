@@ -30,7 +30,8 @@ public sealed record ConsumableDto(string Type, string Colour, int? Level, strin
 
 public sealed record ReadingDto(
     string PrinterId, DateTimeOffset ObservedAt, string Status, string? StatusDetail, int? PageCount,
-    IReadOnlyList<ConsumableDto> Consumables);
+    IReadOnlyList<ConsumableDto> Consumables,
+    int? QueuedJobs = null);
 
 public sealed class CloudClient(HttpClient http, Uri endpoint) : ICloudClient
 {
@@ -89,6 +90,7 @@ public sealed class CloudClient(HttpClient http, Uri endpoint) : ICloudClient
                     ["status"] = r.Status,
                     ["status_detail"] = r.StatusDetail,
                     ["page_count"] = r.PageCount,
+                    ["queued_jobs"] = r.QueuedJobs,
                     ["consumables"] = consumables,
                 });
             }

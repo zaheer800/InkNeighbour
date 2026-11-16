@@ -49,6 +49,13 @@ describe('readings', () => {
     expect(v.ok).toBe(true)
     expect(v.value.consumables[0].level).toBe(42)
   })
+  it('accepts and bounds queued_jobs', () => {
+    expect(validateReading(reading({ queued_jobs: 3 }), now).value.queuedJobs).toBe(3)
+    expect(validateReading(reading({}), now).value.queuedJobs).toBeNull()
+    expect(validateReading(reading({ queued_jobs: -1 }), now).ok).toBe(false)
+    expect(validateReading(reading({ queued_jobs: 1.5 }), now).ok).toBe(false)
+    expect(validateReading(reading({ queued_jobs: 'x' }), now).ok).toBe(false)
+  })
   it('rejects future, ancient, and bad values', () => {
     expect(validateReading(reading({ observed_at: '2026-11-16T11:00:00Z' }), now).ok).toBe(false)
     expect(validateReading(reading({ observed_at: '2026-10-01T00:00:00Z' }), now).ok).toBe(false)

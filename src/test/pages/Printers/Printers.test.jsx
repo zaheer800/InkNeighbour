@@ -12,7 +12,7 @@ const fresh = () => new Date().toISOString()
 const base = () => ({
   loading: false, error: null, accountId: 'acc',
   agents: [{ id: 'a1', device_name: 'Shop PC', status: 'online', last_heartbeat_at: fresh() }],
-  printers: [{ id: 'p1', agent_id: 'a1', name: 'Front desk', manufacturer: 'HP', model: 'M404', status: 'ready', last_seen_at: fresh(), low_supply_threshold: 15 }],
+  printers: [{ id: 'p1', agent_id: 'a1', name: 'Front desk', manufacturer: 'HP', model: 'M404', status: 'ready', last_seen_at: fresh(), low_supply_threshold: 15, queued_jobs: 3 }],
   consumables: [
     { printer_id: 'p1', consumable_type: 'toner', colour: 'black', source: 'actual', level_percentage: 8, observed_at: fresh() },
     { printer_id: 'p1', consumable_type: 'other', colour: 'other', source: 'unsupported', level_percentage: null, observed_at: fresh() },
@@ -41,6 +41,11 @@ describe('Printers page', () => {
     expect(screen.getByText('printers.supply_low')).toBeInTheDocument()
   })
 
+  it('shows the queue count only while the printer is online', () => {
+    renderPage()
+    expect(screen.getByText('printers.queue')).toBeInTheDocument()
+  })
+
   it('shows agent-offline instead of ready when the computer went quiet', () => {
     const s = base()
     s.agents[0].last_heartbeat_at = new Date(Date.now() - 30 * 60_000).toISOString()
@@ -48,6 +53,7 @@ describe('Printers page', () => {
     renderPage()
     expect(screen.getByText('printers.state_agent_offline')).toBeInTheDocument()
     expect(screen.queryByText('printers.state_ready')).not.toBeInTheDocument()
+    expect(screen.queryByText('printers.queue')).not.toBeInTheDocument()
   })
 
   it('shows a formatted pairing code', async () => {

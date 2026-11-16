@@ -496,6 +496,8 @@
     "state_disconnected": "Disconnected",
     "state_unknown": "Waiting for first update",
     "last_seen": "Updated {{when}}",
+    "queue_one": "{{count}} job in queue",
+    "queue_other": "{{count}} jobs in queue",
     "supplies": "Ink and toner",
     "supply_unavailable": "Not available from this printer",
     "supply_low": "Low",

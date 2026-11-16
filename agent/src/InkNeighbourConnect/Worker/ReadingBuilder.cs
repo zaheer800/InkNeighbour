@@ -17,6 +17,7 @@ public static class ReadingBuilder
 
         return new ReadingDto(
             printerId, now, StatusMapper.ToWire(printer.Status), printer.StatusDetail, pages,
-            supplies.Select(s => new ConsumableDto(s.Type, s.Colour, s.Level, s.Source)).ToList());
+            supplies.Select(s => new ConsumableDto(s.Type, s.Colour, s.Level, s.Source)).ToList(),
+            printer.QueuedJobs);
     }
 }
