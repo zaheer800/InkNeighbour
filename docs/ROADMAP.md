@@ -138,6 +138,12 @@ Not part of the Wave 1/2 items above.
 
 - [x] P1. Cloud foundation: migration 027, `printer-agent` function, My Printers page, fake agent.
 - [x] P2. Windows agent read-only monitoring: built in `agent/` (.NET 10 Worker Service, WMI + SNMP). Windows-only paths still need a pilot check on a real PC and printer.
+- [x] P2a. Read-only print queue count (migration 029, `queued_jobs` in telemetry, shown on My Printers).
+- [x] P2b. The agent exe is its own installer (double-click guided pairing, `install` / `uninstall` / `pair` / `run` commands; no PowerShell scripts). Login-gated download via private bucket `agent-releases` and `agent-download` function; the zip is uploaded manually in the Supabase dashboard.
+- [x] P2c. Removing a computer also deletes its printers (migration 030). Installed PWA opens on the dashboard when signed in.
+- Decision (2026-11-16): the agent ships **unsigned** (code-signing cost is prohibitive for now). Windows SmartScreen will warn; the Add computer steps tell owners to click More info, then Run anyway.
+- Pending: pilot shop (printer make/model, digital vs offset, Windows PC) not yet known, so the Windows paths (installer, service, WMI discovery, DPAPI, queue accuracy) remain untested on real hardware. CI now builds and tests the agent on Linux (`agent` job).
+- Not built: remote management (pause, resume, cancel jobs). Needs a secure command channel and a separately reviewed design; overlaps P3.
 - [ ] P3. Print execution (off by default, owner-triggered test job).
 - [ ] P4. Marketplace integration.
 - [ ] P5. (Deferred) Bulk quote requests / bidding.
