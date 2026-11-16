@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import {
   MapPin, LocateFixed, Loader2, Upload, Package,
   CheckCircle, Home, Store, Star,
@@ -59,8 +60,17 @@ const MOCK_PROVIDERS = [
   },
 ]
 
+const isInstalledApp = () =>
+  window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
+
 export default function Landing() {
   const navigate = useNavigate()
+  const { session } = useAuth()
+
+  // The installed app opens on "/". A signed-in owner should land on their dashboard, not a login prompt.
+  useEffect(() => {
+    if (session && isInstalledApp()) navigate('/dashboard', { replace: true })
+  }, [session, navigate])
   const [pincode, setPincode] = useState('')
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState('')
@@ -111,10 +121,10 @@ export default function Landing() {
               Find a Printer
             </a>
             <Link
-              to="/login"
+              to={session ? '/dashboard' : '/login'}
               className="flex items-center min-h-[36px] px-4 rounded-xl border border-white/15 text-white/80 hover:text-white hover:border-white/30 text-sm font-semibold transition-colors"
             >
-              Owner Login
+              {session ? 'My Dashboard' : 'Owner Login'}
             </Link>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -10,7 +10,7 @@ import { useAuth } from '../hooks/useAuth'
 export default function Login() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { signIn } = useAuth()
+  const { signIn, session } = useAuth()
   const [mode, setMode] = useState('login') // 'login' | 'forgot' | 'sent'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,6 +18,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+
+  useEffect(() => {
+    if (session) navigate('/dashboard', { replace: true })
+  }, [session, navigate])
 
   async function handleSubmit(e) {
     e.preventDefault()

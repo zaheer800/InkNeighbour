@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Landing from '../../pages/Landing'
+import { supabase } from '../../lib/supabase'
 
 // useNavigate is mocked in setup.js; override here to capture calls
 const mockNavigate = vi.fn()
@@ -19,6 +20,25 @@ function renderLanding() {
 }
 
 describe('Landing page', () => {
+  beforeEach(() => mockNavigate.mockClear())
+
+  it('shows My Dashboard instead of Owner Login when signed in', async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } })
+    renderLanding()
+    expect(await screen.findByText('My Dashboard')).toBeInTheDocument()
+    expect(screen.queryByText('Owner Login')).not.toBeInTheDocument()
+  })
+
+  it('opens the dashboard straight away when launched as the installed app', async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } })
+    const orig = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true, addListener: vi.fn(), removeListener: vi.fn() })
+    mockNavigate.mockClear()
+    renderLanding()
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true }))
+    window.matchMedia = orig
+  })
+
   it('renders the hero tagline', () => {
     renderLanding()
     // "Print it." appears in multiple tagline elements — getAllByText is appropriate
