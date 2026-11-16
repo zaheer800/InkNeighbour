@@ -20,10 +20,19 @@ supply levels to InkNeighbour (the `printer-agent` edge function).
 WMI discovery and DPAPI credential protection are Windows-only and are covered by compile checks, not
 by the Linux test run. On Windows they need a manual pilot check.
 
+## Distribution
+
+Owners download the zip from the My Printers page (Add computer, Download for Windows). The zip sits in the
+private Supabase bucket `agent-releases` as `InkNeighbourConnect-win-x64.zip`; the `agent-download` edge
+function gives signed-in users a 60-second signed link. To release a new version:
+
+1. `agent/build-release.sh` (runs tests, publishes, writes `agent/publish/InkNeighbourConnect-win-x64.zip`).
+2. Supabase dashboard, Storage, `agent-releases`, upload the zip with the same name (replace the old one).
+
 ## Install (pilot, unsigned)
 
-1. On the My Printers page choose Add computer to get a pairing code (valid 15 minutes).
-2. Copy `InkNeighbourConnect.exe` and `install/install.ps1` to the PC.
+1. On the My Printers page choose Add computer, download the zip and note the pairing code (valid 15 minutes).
+2. Unzip on the PC.
 3. Elevated PowerShell: `.\install.ps1 -Code ABCDE-12345`. Windows SmartScreen will warn because the
    build is unsigned; that is expected for the pilot.
 

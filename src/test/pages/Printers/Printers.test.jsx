@@ -18,6 +18,7 @@ const base = () => ({
     { printer_id: 'p1', consumable_type: 'other', colour: 'other', source: 'unsupported', level_percentage: null, observed_at: fresh() },
   ],
   alerts: [],
+  getAgentDownloadUrl: vi.fn().mockResolvedValue({ url: null, error: new Error('not_available') }),
   createPairingCode: vi.fn().mockResolvedValue({ code: 'ABCDE12345', error: null }),
   revokeAgent: vi.fn().mockResolvedValue({ error: null }),
   updatePrinter: vi.fn().mockResolvedValue({ error: null }),
@@ -53,6 +54,17 @@ describe('Printers page', () => {
     renderPage()
     fireEvent.click(screen.getByText('printers.add_computer'))
     expect(await screen.findByText('ABCDE-12345')).toBeInTheDocument()
+  })
+
+  it('tells the user when the installer download is not available', async () => {
+    const { toast } = await import('sonner')
+    const s = base()
+    vi.mocked(usePrinters).mockReturnValue(s)
+    renderPage()
+    fireEvent.click(screen.getByText('printers.add_computer'))
+    fireEvent.click(await screen.findByText('printers.pair_download'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('printers.pair_download_error'))
+    expect(s.getAgentDownloadUrl).toHaveBeenCalled()
   })
 
   it('acknowledges an alert', async () => {

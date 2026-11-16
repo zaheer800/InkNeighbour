@@ -63,6 +63,11 @@ export function usePrinters() {
     return { code: data, error: e }
   }, [accountId])
 
+  const getAgentDownloadUrl = useCallback(async () => {
+    const { data, error: e } = await supabase.functions.invoke('agent-download', { body: {} })
+    return { url: data?.url ?? null, error: e ?? (data?.url ? null : new Error('not_available')) }
+  }, [])
+
   const revokeAgent = useCallback(async (agentId) => {
     const { error: e } = await supabase.rpc('revoke_printer_agent', { p_agent: agentId })
     if (!e) await load()
@@ -91,6 +96,6 @@ export function usePrinters() {
 
   return {
     accountId, agents, printers, consumables, alerts, loading, error,
-    refresh: load, createPairingCode, revokeAgent, updatePrinter, removePrinter, acknowledgeAlert,
+    refresh: load, createPairingCode, getAgentDownloadUrl, revokeAgent, updatePrinter, removePrinter, acknowledgeAlert,
   }
 }
