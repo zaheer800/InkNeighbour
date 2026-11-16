@@ -465,7 +465,7 @@
     "pair_step1": "1. On the Windows computer next to your printer, download InkNeighbour Connect, unzip it and double-click InkNeighbourConnect.",
     "pair_download": "Download for Windows",
     "pair_download_error": "The download is not available yet. Please try again later.",
-    "pair_step2": "2. Click Yes if Windows asks, then type this code when it asks:",
+    "pair_step2": "2. Windows may say \"Windows protected your PC\" because the app is new. Click More info, then Run anyway, and Yes if asked. Then type this code when it asks:",
     "pair_expires": "The code works once and lasts 15 minutes.",
     "pair_done": "Done",
     "pair_error": "We could not make a code. Please try again in a minute.",
