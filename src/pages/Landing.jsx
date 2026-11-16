@@ -3,7 +3,8 @@ import { useNavigate, Link } from 'react-router-dom'
 import {
   MapPin, LocateFixed, Loader2, Upload, Package,
   CheckCircle, Home, Store, Star,
-  ArrowRight, Zap, Shield, IndianRupee
+  ArrowRight, Zap, Shield, IndianRupee,
+  Printer, BellRing, Activity, MonitorSmartphone
 } from 'lucide-react'
 
 /* ── Mock provider cards shown in the directory preview ── */
@@ -346,6 +347,83 @@ export default function Landing() {
               <LocateFixed size={16} /> See printers near you
             </button>
             <p className="text-muted text-xs mt-3">No account needed · Free to browse</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Printer management ── */}
+      <section className="bg-surface py-16 px-4 sm:px-6">
+        <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-10 items-center">
+          <div>
+            <span className="inline-block bg-violet/10 text-violet text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4 border border-violet/15">
+              For print shops &amp; home owners
+            </span>
+            <h2 className="font-display font-black text-ink text-3xl sm:text-4xl mb-3 leading-tight">
+              Know your printer is ready before the customer does.
+            </h2>
+            <p className="text-muted text-base mb-6">
+              Install the free InkNeighbour Connect app on the PC next to your printer. See its status and ink or toner
+              levels from your phone, and get an alert before you run out.
+            </p>
+            <ul className="space-y-3 mb-7">
+              {[
+                { icon: Activity,          text: 'Live status: ready, busy, error or offline' },
+                { icon: Printer,           text: 'Ink and toner levels for every cartridge' },
+                { icon: BellRing,          text: 'Alerts for low supplies, errors and offline printers' },
+                { icon: MonitorSmartphone, text: 'Works with the printers you already own' },
+              ].map(({ icon: Icon, text }) => (
+                <li key={text} className="flex items-center gap-3 text-sm text-ink">
+                  <span className="w-8 h-8 rounded-lg bg-violet/10 flex items-center justify-center shrink-0">
+                    <Icon size={15} className="text-violet" />
+                  </span>
+                  {text}
+                </li>
+              ))}
+            </ul>
+            <Link
+              to="/register"
+              className="inline-flex items-center gap-2 font-bold text-sm text-white px-6 py-3.5 rounded-2xl min-h-[52px] transition-opacity hover:opacity-90"
+              style={{ background: '#7C3AED' }}
+            >
+              Set up my shop <ArrowRight size={16} />
+            </Link>
+          </div>
+
+          {/* Illustrative dashboard card */}
+          <div className="bg-bg rounded-3xl border border-border p-5 shadow-card" aria-hidden="true">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted mb-3">Example: My Printers</p>
+            <div className="bg-surface rounded-2xl border border-border p-4 space-y-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-green/10 flex items-center justify-center shrink-0">
+                    <Printer size={18} className="text-green" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-display font-bold text-ink text-sm truncate">Front desk</p>
+                    <p className="text-muted text-xs truncate">Colour laser · Shop PC</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg bg-green/10 text-green shrink-0 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-current" /> Ready
+                </span>
+              </div>
+              {[
+                { label: 'Black', pct: 72, bar: 'bg-ink' },
+                { label: 'Cyan', pct: 64, bar: 'bg-sky' },
+                { label: 'Magenta', pct: 41, bar: 'bg-violet' },
+                { label: 'Yellow', pct: 9, bar: 'bg-amber', low: true },
+              ].map(({ label, pct, bar, low }) => (
+                <div key={label}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-semibold text-ink">{label}</span>
+                    <span className={low ? 'font-bold text-amber' : 'text-muted'}>{pct}%{low ? ' · low' : ''}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-border overflow-hidden">
+                    <div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
