@@ -122,7 +122,7 @@ export default function Landing() {
             </a>
             <Link
               to={session ? '/dashboard' : '/login'}
-              className="flex items-center min-h-[36px] px-4 rounded-xl border border-white/15 text-white/80 hover:text-white hover:border-white/30 text-sm font-semibold transition-colors"
+              className="flex items-center min-h-[48px] px-4 rounded-xl border border-white/15 text-white/80 hover:text-white hover:border-white/30 text-sm font-semibold transition-colors"
             >
               {session ? 'My Dashboard' : 'Owner Login'}
             </Link>
