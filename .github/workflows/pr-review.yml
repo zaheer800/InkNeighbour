@@ -30,14 +30,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      # semgrep-action@v1 is deprecated and does not write semgrep.sarif on pull_request runs, which made the
+      # upload step fail. Run the CLI directly; findings are reported in Code Scanning, not as a failed job.
       - name: Semgrep
         if: matrix.tool == 'semgrep'
-        uses: semgrep/semgrep-action@v1
-        with:
-          # p/ci is Semgrep's default free OSS ruleset bundle — no
-          # SEMGREP_APP_TOKEN / Semgrep Cloud login required.
-          config: p/ci
-          generateSarif: "1"
+        run: |
+          pipx install semgrep
+          semgrep scan --config p/ci --sarif --output semgrep.sarif --metrics off
 
       - name: Upload Semgrep SARIF
         if: matrix.tool == 'semgrep'
