@@ -8,17 +8,18 @@ status and supplies on a dashboard, and get alerts. Honest about unsupported dat
 
 ## Slice order
 1. Cloud foundation (this branch): tables + RLS, `printer-agent` edge function, My Printers page, fake agent for testing.
-2. Windows agent, read-only monitoring: discovery, status, SNMP Printer MIB supplies. Unsigned installer for the pilot.
+2. Windows agent, read-only monitoring: discovery, status, SNMP Printer MIB supplies, read-only queue count. Built. The exe is its own installer (install, uninstall, pair, run; double-click guided). Unsigned for the pilot.
 3. Print execution, off by default, one owner-triggered test job. Separate branch.
 4. Marketplace integration. Separate branch.
+5. Deferred: bulk quote requests with sealed bids (RFQ). Own spec and security review first; see PRD Phase 5.
 
 ## Out of scope
 AI features, subscriptions/billing, multi-user business UI (tables exist, no UI), analytics and cost
-estimates, email alerts, signed installer (needs a purchased certificate), print execution,
+estimates, email alerts, signed installer (decided 2026-11-16: too costly for now, so unsigned with a SmartScreen note), print execution,
 marketplace integration, RFQ/bidding.
 
 ## Stack
-Existing: React 18, Vite, Tailwind, Supabase (Postgres, Edge Functions). Agent: .NET Worker Service (later).
+Existing: React 18, Vite, Tailwind, Supabase (Postgres, Edge Functions). Agent: .NET 10 Worker Service, win-x64 single file, DPAPI credential store.
 
 ## Decisions
 - Printer tables are keyed to the Supabase user via `printer_accounts`, not to `owners`. A personal
@@ -35,3 +36,9 @@ Existing: React 18, Vite, Tailwind, Supabase (Postgres, Edge Functions). Agent: 
   stored as null level, never as zero.
 - Additive migration only (`027_printer_management.sql`). Not applied to the live project until the
   review loop is clean.
+- Queue count: `queued_jobs` (integer 0..100000, optional) in telemetry; migration 029. Read-only.
+- Removing a computer revokes its credential and deletes its printers and their history (migration 030).
+- Agent download: private bucket `agent-releases`, edge function `agent-download` (login required,
+  60-second signed URL). The zip is uploaded manually.
+- Agents accept no commands from the cloud. Remote management and print execution need a secure
+  command channel, designed and reviewed separately.
