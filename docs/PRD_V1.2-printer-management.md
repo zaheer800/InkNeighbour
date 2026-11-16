@@ -1023,6 +1023,37 @@ Cheap preparation now (no RFQ build): capture structured job specs and
 keep the provider capability profile; allow orders to link to an
 accepted quote later.
 
+Open questions before any build: bid window and how long a quote stays
+valid; how a winner is chosen (price only, or price plus reliability
+score); deposit and release rules; dispute handling; minimum number of
+eligible providers per area before RFQ is useful; whether offset-press
+shops are onboarded manually for the pilot. Needs its own spec and
+security review (payments and contact-detail hiding).
+
+# 13a. Implementation status (updated 16 November 2026)
+
+Built: cloud foundation, My Printers page, Windows agent with read-only
+monitoring (WMI discovery, SNMP supplies, read-only print queue count),
+alerts, login-gated agent download, exe that installs itself and pairs
+with a code, removing a computer also removes its printers.
+
+Decisions that differ from the proposal above:
+
+-   The agent ships **unsigned** for now (certificate cost). SmartScreen
+    warns on first run; the pairing steps tell the owner how to proceed.
+    Section 6.4 "Signed installers" is deferred, not dropped.
+-   Distribution is a zip with a single exe (no PowerShell scripts),
+    uploaded by hand to a private bucket and served through a 60-second
+    signed URL to signed-in users only.
+-   The agent receives no commands from the cloud. Pause, resume and
+    cancel on queued jobs (remote management) and print execution need a
+    secure command channel and a separate reviewed design.
+-   Queue count is read-only and optional; unknown stays unknown.
+
+Not yet verified: the Windows-only paths (installer, service, WMI,
+credential store, queue accuracy) need a pilot on a real PC and
+printer. Pilot shop details are still unknown.
+
 # 14. Success Metrics
 
 ## Adoption
