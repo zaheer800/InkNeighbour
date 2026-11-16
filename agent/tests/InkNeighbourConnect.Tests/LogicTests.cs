@@ -168,6 +168,31 @@ public class WorkerTests
         Assert.Equal("id-2", cloud.Sent[^1][0].PrinterId);
     }
 
+    sealed class ThrowingWalker : ISnmpWalker
+    {
+        public Task<IReadOnlyDictionary<string, string>> WalkAsync(string host, string community, string rootOid, CancellationToken ct) =>
+            throw new InvalidOperationException("bad device");
+    }
+
+    [Fact] public async Task OneBrokenPrinterStillReportsStatus()
+    {
+        var cloud = new FakeCloud();
+        await Worker(cloud, new FakePrinters(Net("A"), Net("B", "10.0.0.9")), new FakeWalker(new())).CycleAsync("c", default);
+        Assert.Equal(2, Assert.Single(cloud.Sent).Count);
+        var broken = new PollWorker(null!, cloud, new FakePrinters(Net()), new ThrowingWalker(), new Lifetime(), NullLogger<PollWorker>.Instance);
+        await broken.CycleAsync("c", default);
+        var r = Assert.Single(cloud.Sent[^1]);
+        Assert.Equal("ready", r.Status);
+        Assert.Empty(r.Consumables);
+    }
+
+    [Fact] public async Task UnreachablePrinterStopsAfterFirstWalk()
+    {
+        var walker = new FakeWalker(new());
+        await SupplyParser.ReadAsync(walker, "10.0.0.1", "public", default);
+        Assert.Single(walker.Hosts);
+    }
+
     [Fact] public async Task NoPrintersSendsNothing()
     {
         var cloud = new FakeCloud();

@@ -26,26 +26,53 @@ public sealed class FileCredentialStore(string path) : ICredentialStore
     public AgentState? Load()
     {
         if (!File.Exists(path)) return null;
-        var s = JsonSerializer.Deserialize<Stored>(File.ReadAllText(path));
-        if (s is null) return null;
-        var credential = s.Protected ? Unprotect(s.Credential) : s.Credential;
-        return new AgentState(credential, new Uri(s.Endpoint));
+        try
+        {
+            var s = JsonSerializer.Deserialize<Stored>(File.ReadAllText(path));
+            if (s is null || string.IsNullOrEmpty(s.Credential)) return null;
+            var credential = s.Protected ? Unprotect(s.Credential) : s.Credential;
+            return new AgentState(credential, new Uri(s.Endpoint));
+        }
+        catch (Exception e) when (e is JsonException or FormatException or UriFormatException or CryptographicException or ArgumentException)
+        {
+            return null;
+        }
     }
 
     public void Save(AgentState state)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var dir = Path.GetDirectoryName(path)!;
+        Directory.CreateDirectory(dir);
+        if (OperatingSystem.IsWindows()) RestrictDirectory(dir);
         var prot = OperatingSystem.IsWindows();
         var credential = prot ? Protect(state.Credential) : state.Credential;
         var json = JsonSerializer.Serialize(new Stored(credential, state.Endpoint.ToString(), prot));
-        File.WriteAllText(path, json);
+        var tmp = path + ".tmp";
+        File.WriteAllText(tmp, json);
         if (!OperatingSystem.IsWindows())
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            File.SetUnixFileMode(tmp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        File.Move(tmp, path, overwrite: true);
     }
 
     public void Clear()
     {
         if (File.Exists(path)) File.Delete(path);
+    }
+
+    // Only SYSTEM and Administrators may read the state; other local users must not be able to decrypt it.
+    [SupportedOSPlatform("windows")]
+    private static void RestrictDirectory(string dir)
+    {
+        var info = new DirectoryInfo(dir);
+        var sec = new System.Security.AccessControl.DirectorySecurity();
+        sec.SetAccessRuleProtection(true, false);
+        foreach (var sid in new[] { System.Security.Principal.WellKnownSidType.LocalSystemSid, System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid })
+            sec.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                new System.Security.Principal.SecurityIdentifier(sid, null),
+                System.Security.AccessControl.FileSystemRights.FullControl,
+                System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
+        info.SetAccessControl(sec);
     }
 
     [SupportedOSPlatform("windows")]

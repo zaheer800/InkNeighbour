@@ -13,7 +13,12 @@ public sealed class SharpSnmpWalker(TimeSpan? timeout = null) : ISnmpWalker
         string host, string community, string rootOid, CancellationToken ct)
     {
         var result = new Dictionary<string, string>();
-        if (!IPAddress.TryParse(host, out var ip)) return result;
+        if (!IPAddress.TryParse(host, out var ip))
+        {
+            try { ip = (await Dns.GetHostAddressesAsync(host, ct)).FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork); }
+            catch (Exception e) when (e is System.Net.Sockets.SocketException) { return result; }
+            if (ip is null) return result;
+        }
         var list = new List<Variable>();
         try
         {

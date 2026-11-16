@@ -19,13 +19,18 @@ public static class SupplyParser
     public const string ColLevel = SuppliesBase + ".9";
     public const string LifeCount = "1.3.6.1.2.1.43.10.2.1.4";
 
-    private static readonly string[] Columns = [ColClass, ColType, ColDescription, ColMaxCapacity, ColLevel];
+    private static readonly string[] Columns = [ColLevel, ColClass, ColType, ColDescription, ColMaxCapacity];
 
     public static async Task<(IReadOnlyList<Supply> Supplies, int? PageCount)> ReadAsync(
         ISnmpWalker walker, string host, string community, CancellationToken ct)
     {
         var cols = new Dictionary<string, IReadOnlyDictionary<string, string>>();
-        foreach (var c in Columns) cols[c] = await walker.WalkAsync(host, community, c, ct);
+        foreach (var c in Columns)
+        {
+            cols[c] = await walker.WalkAsync(host, community, c, ct);
+            // An unreachable printer times out on every walk; give up after the first.
+            if (c == ColLevel && cols[c].Count == 0) return ([], null);
+        }
         var life = await walker.WalkAsync(host, community, LifeCount, ct);
         return (Parse(cols), ParsePageCount(life));
     }

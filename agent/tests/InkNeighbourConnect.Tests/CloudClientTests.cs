@@ -86,4 +86,13 @@ public class CredentialStoreTests
         store.Clear();
         Assert.Null(store.Load());
     }
+
+    [Fact] public void CorruptStateFileIsTreatedAsNotPaired()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"ink-{Guid.NewGuid()}.json");
+        File.WriteAllText(path, "{\"Credential\":\"a.b\",\"Endpoi");
+        Assert.Null(new FileCredentialStore(path).Load());
+        File.WriteAllText(path, "{\"Credential\":\"a.b\",\"Endpoint\":\"not a uri\",\"Protected\":false}");
+        Assert.Null(new FileCredentialStore(path).Load());
+    }
 }

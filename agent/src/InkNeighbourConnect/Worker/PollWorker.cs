@@ -26,6 +26,7 @@ public sealed class PollWorker(
 
         var interval = TimeSpan.FromSeconds(60);
         var failures = 0;
+        var rejections = 0;
         while (!stop.IsCancellationRequested)
         {
             try
@@ -33,6 +34,12 @@ public sealed class PollWorker(
                 interval = TimeSpan.FromSeconds(Math.Max(15, await cloud.HeartbeatAsync(state.Credential, Version, stop)));
                 await CycleAsync(state.Credential, stop);
                 failures = 0;
+                rejections = 0;
+            }
+            catch (CredentialRejectedException) when (++rejections < 3)
+            {
+                failures++;
+                log.LogWarning("Credential was not accepted ({Count} of 3). Retrying.", rejections);
             }
             catch (CredentialRejectedException)
             {
@@ -54,11 +61,29 @@ public sealed class PollWorker(
         }
     }
 
+    private async Task<ReadingDto> BuildSafeAsync(string id, PrinterInfo p, DateTimeOffset now, CancellationToken ct)
+    {
+        try { return await ReadingBuilder.BuildAsync(id, p, snmp, SnmpCommunity, now, ct); }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            log.LogWarning("Could not read supplies for {Printer}: {Message}", p.Name, e.Message);
+            return await ReadingBuilder.BuildAsync(id, p with { Connection = ConnectionType.Other }, snmp, SnmpCommunity, now, ct);
+        }
+    }
+
     public async Task CycleAsync(string credential, CancellationToken ct)
     {
         var now = _clock.GetUtcNow();
         var readings = new List<ReadingDto>();
-        foreach (var p in printers.GetPrinters())
+        IReadOnlyList<PrinterInfo> found;
+        try { found = printers.GetPrinters(); }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            log.LogWarning("Could not list printers: {Message}", e.Message);
+            return;
+        }
+        var work = new List<(string Id, PrinterInfo Printer)>();
+        foreach (var p in found)
         {
             if (!_printerIds.TryGetValue(p.DeviceIdentifier, out var id))
             {
@@ -66,8 +91,10 @@ public sealed class PollWorker(
                 catch (CloudException e) { log.LogWarning("Could not register {Printer}: {Error}", p.Name, e.Code); continue; }
                 _printerIds[p.DeviceIdentifier] = id;
             }
-            readings.Add(await ReadingBuilder.BuildAsync(id, p, snmp, SnmpCommunity, now, ct));
+            work.Add((id, p));
         }
+        // Printers are read in parallel so one unreachable device cannot delay the rest or the next heartbeat.
+        readings.AddRange(await Task.WhenAll(work.Select(w => BuildSafeAsync(w.Id, w.Printer, now, ct))));
         if (readings.Count == 0) return;
         foreach (var r in await cloud.SendTelemetryAsync(credential, readings, ct))
         {

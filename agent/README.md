@@ -13,7 +13,7 @@ supply levels to InkNeighbour (the `printer-agent` edge function).
 
 ## Build and test
 
-    dotnet test agent/InkNeighbourConnect.sln
+    dotnet test agent/InkNeighbourConnect.slnx
     dotnet publish agent/src/InkNeighbourConnect -c Release -r win-x64 --self-contained \
       -p:PublishSingleFile=true -o agent/publish/win-x64
 
@@ -41,3 +41,11 @@ Non-Windows hosts have no printer source, so only the heartbeat runs.
 - The credential is stored with DPAPI (LocalMachine) at `%ProgramData%\InkNeighbourConnect\agent.json`.
 - Pairing requires HTTPS except for loopback. A rejected credential (401) makes the agent clear it and stop.
 - The SNMP community is the default `public`; pilot printers must allow read access with it.
+
+## Known limitations
+
+- Status comes from the legacy WMI `PrinterStatus`/`DetectedErrorState` fields. A printer that is powered
+  off but still has a spooler queue may show as ready; SNMP-reachable printers that stop answering are
+  caught by the cloud staleness rule, but USB printers are not.
+- Supply levels are read only for network printers (SNMP v2c, community `public`).
+- DPAPI uses machine scope; the state directory is restricted to SYSTEM and Administrators.

@@ -29,7 +29,7 @@ public sealed class WindowsPrinterSource : IPrinterSource
                     : port.StartsWith("USB", StringComparison.OrdinalIgnoreCase) ? ConnectionType.Usb
                     : ConnectionType.Other;
                 result.Add(new PrinterInfo(
-                    DeviceIdentifier: $"{name}|{port}",
+                    DeviceIdentifier: $"{Environment.MachineName}|{name}|{port}",
                     Name: name, Manufacturer: null, Model: driver, Connection: connection,
                     IpAddress: ip, DriverInfo: driver, Status: status, StatusDetail: detail));
             }
@@ -44,7 +44,8 @@ public sealed class WindowsPrinterSource : IPrinterSource
         var driver = (p["DriverName"] as string ?? "").ToLowerInvariant();
         return port is "NUL:" or "PORTPROMPT:" or "FILE:" or "SHRFAX:" or "NULL"
             || port.StartsWith("PORTPROMPT") || port.StartsWith("XPSPORT")
-            || driver.Contains("pdf") || driver.Contains("xps") || driver.Contains("onenote") || driver.Contains("fax");
+            || driver is "microsoft print to pdf" or "microsoft xps document writer" or "microsoft shared fax driver"
+            || driver.StartsWith("send to onenote") || driver.StartsWith("onenote");
     }
 
     private static Dictionary<string, string> LoadPortHosts()

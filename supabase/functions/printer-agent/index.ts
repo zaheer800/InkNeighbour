@@ -60,8 +60,10 @@ interface Agent { id: string; account_id: string; status: string }
 async function authenticate(req: Request): Promise<Agent | Response> {
   const cred = parseCredential(req.headers.get('Authorization'))
   if (!cred) return json(401, { error: 'unauthorized' })
-  const { data: agent } = await db.from('printer_agents')
+  const { data: agent, error: lookupError } = await db.from('printer_agents')
     .select('id, account_id, status, secret_hash').eq('id', cred.agentId).maybeSingle()
+  // A failed lookup is not a rejected credential: agents treat 401 as "removed" and stop for good.
+  if (lookupError) return json(503, { error: 'temporarily_unavailable' })
   const ok = agent && agent.status !== 'revoked' && safeEqual(await sha256Hex(cred.secret), agent.secret_hash)
   if (!ok) return json(401, { error: 'unauthorized' })
   const { data: allowed } = await db.rpc('printer_rate_check', { p_key: `agent:${agent.id}`, p_limit: 120, p_window_seconds: 60 })
