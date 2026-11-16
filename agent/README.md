@@ -32,11 +32,13 @@ function gives signed-in users a 60-second signed link. To release a new version
 ## Install (pilot, unsigned)
 
 1. On the My Printers page choose Add computer, download the zip and note the pairing code (valid 15 minutes).
-2. Unzip on the PC.
-3. Elevated PowerShell: `.\install.ps1 -Code ABCDE-12345`. Windows SmartScreen will warn because the
-   build is unsigned; that is expected for the pilot.
+2. Unzip on the PC and double-click `InkNeighbourConnect`. Click Yes at the Windows prompt, type the code, press Enter.
+   It pairs the PC and installs a Windows service. Windows SmartScreen will warn because the build is
+   unsigned; choose More info, then Run anyway. That is expected for the pilot.
 
-Uninstall with `install/uninstall.ps1`, then Disconnect the computer on the My Printers page.
+Command line (optional): `InkNeighbourConnect install ABCDE-12345`, `InkNeighbourConnect uninstall`,
+`InkNeighbourConnect run` (console instead of service). After uninstalling, remove the computer on the
+My Printers page. The install, service and uninstall paths are Windows-only and compile-checked only.
 
 ## Running on any OS (testing)
 
