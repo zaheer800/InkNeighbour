@@ -7,7 +7,7 @@
 | `store-reg-pending` | yes (verify_jwt on) | Saves the pending registration into an unconfirmed user's metadata. Callable without a session by necessity, so it only accepts a real, unconfirmed account created in the last 48 hours. |
 | `notify` | **no** | Web-push sender (needs `VAPID_PRIVATE_KEY`, `VAPID_EMAIL`). Written but never deployed. |
 | `check-sla` | **no** | Auto-cancels late jobs and sends escalation reminders. Written but never deployed, and it needs an external scheduler (cron) that is not defined anywhere yet. |
-| `printer-agent` | **no** (until migration 027 is applied) | The only door for the Windows agent (InkNeighbour Connect). **Deploy with verify_jwt off**: agents authenticate with their own per-agent credential (`Bearer <agent_id>.<secret>`, SHA-256 hash stored) or a one-time pairing code. No CORS on purpose. Never sends commands. |
+| `printer-agent` | yes, verify_jwt off (deployed 2026-11-16) | The only door for the Windows agent (InkNeighbour Connect). **Deploy with verify_jwt off**: agents authenticate with their own per-agent credential (`Bearer <agent_id>.<secret>`, SHA-256 hash stored) or a one-time pairing code. No CORS on purpose. Never sends commands. |
 
 The three deployed functions send mail from `inkneighbour@mail.zakapedia.in` (secrets
 `RESEND_API_KEY` and `FROM_EMAIL` on the project). Browser access is limited to

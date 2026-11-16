@@ -31,7 +31,7 @@ statements differ):
 ## Printer management
 
 `027_printer_management` (printer accounts, agents, pairing, printers, metrics, consumables, alerts,
-`printer_sweep` cron) is **not applied to the live project until the review loop is clean**.
+`printer_sweep` cron) is **applied to the live project (2026-11-16)** after the review loop came back clean.
 It is additive and touches no existing table.
 
 ## What to do
