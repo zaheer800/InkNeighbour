@@ -24,6 +24,12 @@ describe('Login page', () => {
     vi.clearAllMocks()
   })
 
+  it('sends an already signed-in owner to the dashboard', async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } })
+    renderLogin()
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true }))
+  })
+
   it('renders the login heading', () => {
     renderLogin()
     expect(screen.getByText('login.title')).toBeInTheDocument()

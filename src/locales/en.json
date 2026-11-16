@@ -470,7 +470,7 @@
     "pair_done": "Done",
     "pair_error": "We could not make a code. Please try again in a minute.",
     "remove_computer": "Remove",
-    "remove_computer_confirm": "Remove this computer? It will stop sending updates and its printers will show as disconnected.",
+    "remove_computer_confirm": "Remove this computer? It will stop sending updates, and its printers and their history will be deleted.",
     "computer_removed": "Computer removed.",
     "computer_online": "Connected",
     "computer_offline": "Offline",
