@@ -12,6 +12,7 @@ import DashboardEarnings from './pages/Dashboard/Earnings'
 import DashboardFeedback from './pages/Dashboard/Feedback'
 import DashboardSettings from './pages/Dashboard/Settings'
 import DashboardAvailability from './pages/Dashboard/Availability'
+import Printers from './pages/Printers'
 import ShopPage from './pages/ShopPage'
 import OrderConfirm from './pages/OrderConfirm'
 import FeedbackForm from './pages/FeedbackForm'
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/dashboard/feedback" element={<ProtectedRoute><DashboardFeedback /></ProtectedRoute>} />
         <Route path="/dashboard/availability" element={<ProtectedRoute><DashboardAvailability /></ProtectedRoute>} />
         <Route path="/dashboard/settings" element={<ProtectedRoute><DashboardSettings /></ProtectedRoute>} />
+        <Route path="/printers" element={<ProtectedRoute><Printers /></ProtectedRoute>} />
 
         {/* Platform admin — protected + admin email only */}
         <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />

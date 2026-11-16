@@ -28,6 +28,12 @@ statements differ):
 | `20260425174602_fix_owner_society_unique_and_availability` | `020_fix_owner_society_unique_and_availability` |
 | `20260425184641_owners_user_phone_unique_active` | `021_owners_user_phone_unique_active` |
 
+## Printer management
+
+`027_printer_management` (printer accounts, agents, pairing, printers, metrics, consumables, alerts,
+`printer_sweep` cron) is **not applied to the live project until the review loop is clean**.
+It is additive and touches no existing table.
+
 ## What to do
 
 - **New migrations:** continue the numbered sequence (`025_...`). If a tool records a timestamp

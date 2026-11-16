@@ -129,3 +129,15 @@ Written 2026-09-23 for autonomous runs (`run InkNeighbour: Do roadmap item N in 
   function secrets. Without this, `check-sla`'s `drainOutbox()` has nowhere to send.
 - Any Phase 2/3 decision (Razorpay subscriptions/commission, Stripe, WATI, multi-language UI,
   Capacitor app) -- explicitly out of scope per `CLAUDE.md` until asked for.
+
+
+## Printer management (separate track, added 2026-11-16)
+
+Spec: `docs/printer-management-spec.md`. PRD: `docs/PRD_V1.2-printer-management.md`.
+Not part of the Wave 1/2 items above.
+
+- [ ] P1. Cloud foundation: migration 027, `printer-agent` function, My Printers page, fake agent.
+- [ ] P2. Windows agent read-only monitoring (needs a real printer at the pilot shop).
+- [ ] P3. Print execution (off by default, owner-triggered test job).
+- [ ] P4. Marketplace integration.
+- [ ] P5. (Deferred) Bulk quote requests / bidding.
