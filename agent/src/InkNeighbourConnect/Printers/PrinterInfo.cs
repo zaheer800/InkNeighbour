@@ -13,7 +13,8 @@ public sealed record PrinterInfo(
     string? IpAddress,
     string? DriverInfo,
     PrinterStatus Status,
-    string? StatusDetail);
+    string? StatusDetail,
+    int? QueuedJobs = null);
 
 public interface IPrinterSource
 {

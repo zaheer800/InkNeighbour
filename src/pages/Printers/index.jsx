@@ -59,6 +59,7 @@ function PrinterCard({ printer, agent, supplies, t, onSave, onRemove }) {
   const [threshold, setThreshold] = useState(printer.low_supply_threshold)
   const state = printerLiveState(printer, agent)
   const seen = timeAgo(printer.last_seen_at)
+  const showQueue = (state === 'ready' || state === 'busy') && Number.isInteger(printer.queued_jobs)
   const makeModel = [printer.manufacturer, printer.model].filter(Boolean).join(' ')
 
   async function save(e) {
@@ -76,7 +77,12 @@ function PrinterCard({ printer, agent, supplies, t, onSave, onRemove }) {
           {makeModel && makeModel !== printer.name && (
             <p className="text-base text-muted break-words">{makeModel}</p>
           )}
-          {seen && <p className="text-sm text-muted mt-0.5">{t('printers.last_seen', { when: seen })}</p>}
+          {seen && (
+            <p className="text-sm text-muted mt-0.5">
+              {t('printers.last_seen', { when: seen })}
+              {showQueue && <> · <span className="font-semibold text-ink">{t('printers.queue', { count: printer.queued_jobs })}</span></>}
+            </p>
+          )}
         </div>
         <Badge label={t(`printers.state_${state}`)} variant={STATE_BADGE[state]} className="shrink-0 whitespace-nowrap" />
       </div>

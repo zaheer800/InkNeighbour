@@ -95,6 +95,15 @@ public class SupplyParserTests
     [InlineData("Imaging unit", "other")] [InlineData(null, "other")]
     public void ColourFromDescription(string? d, string expected) => Assert.Equal(expected, SupplyParser.ColourOf(d));
 
+    [Fact] public void QueueNameParsing()
+    {
+        Assert.Equal("HP LaserJet", QueueNameParser.PrinterOf("HP LaserJet, 12"));
+        Assert.Equal("Shop, Front desk", QueueNameParser.PrinterOf("Shop, Front desk, 7"));
+        Assert.Null(QueueNameParser.PrinterOf("garbage"));
+        Assert.Null(QueueNameParser.PrinterOf("Printer, x"));
+        Assert.Null(QueueNameParser.PrinterOf(null));
+    }
+
     [Fact] public void PageCountParsing()
     {
         Assert.Equal(1234, SupplyParser.ParsePageCount(new Dictionary<string, string> { ["x"] = "1234" }));
@@ -136,6 +145,17 @@ public class WorkerTests
         Assert.Equal("id-1", r.PrinterId);
         Assert.Equal(9000, r.PageCount);
         Assert.Equal(new Cloud.ConsumableDto("toner", "black", 42, "actual"), Assert.Single(r.Consumables));
+    }
+
+    [Fact] public async Task QueueDepthIsForwardedAndUnknownStaysNull()
+    {
+        var cloud = new FakeCloud();
+        var counted = Net() with { QueuedJobs = 4 };
+        await Worker(cloud, new FakePrinters(counted), WalkerWithToner()).CycleAsync("cred", default);
+        Assert.Equal(4, Assert.Single(Assert.Single(cloud.Sent)).QueuedJobs);
+        var cloud2 = new FakeCloud();
+        await Worker(cloud2, new FakePrinters(Net()), WalkerWithToner()).CycleAsync("cred", default);
+        Assert.Null(Assert.Single(Assert.Single(cloud2.Sent)).QueuedJobs);
     }
 
     [Fact] public async Task UsbPrinterSendsStatusOnlyAndNeverTouchesNetwork()

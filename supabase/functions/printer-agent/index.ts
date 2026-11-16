@@ -151,7 +151,7 @@ async function handleTelemetry(agent: Agent, body: Record<string, unknown>) {
     const stale = printer.last_seen_at && new Date(printer.last_seen_at).getTime() > r.observedAt.getTime()
     if (!stale) {
       must(await db.from('printers').update({
-        status: r.status, status_detail: r.statusDetail, last_seen_at: r.observedAt.toISOString(), agent_id: agent.id,
+        status: r.status, status_detail: r.statusDetail, queued_jobs: r.queuedJobs, last_seen_at: r.observedAt.toISOString(), agent_id: agent.id,
       }).eq('id', printer.id))
     }
 

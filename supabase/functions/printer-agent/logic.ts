@@ -98,6 +98,7 @@ export interface Reading {
   status: (typeof STATUSES)[number]
   statusDetail: string | null
   pageCount: number | null
+  queuedJobs: number | null
   consumables: ConsumableReading[]
 }
 
@@ -119,6 +120,14 @@ export function validateReading(raw: unknown, now: Date): Result<Reading> {
       return fail('invalid_page_count')
     }
     pageCount = raw.page_count
+  }
+
+  let queuedJobs: number | null = null
+  if (raw.queued_jobs !== undefined && raw.queued_jobs !== null) {
+    if (typeof raw.queued_jobs !== 'number' || !Number.isInteger(raw.queued_jobs) || raw.queued_jobs < 0 || raw.queued_jobs > 100000) {
+      return fail('invalid_queued_jobs')
+    }
+    queuedJobs = raw.queued_jobs
   }
 
   const consumables: ConsumableReading[] = []
@@ -144,7 +153,7 @@ export function validateReading(raw: unknown, now: Date): Result<Reading> {
 
   return {
     ok: true,
-    value: { printerId: raw.printer_id.toLowerCase(), observedAt: new Date(t), status, statusDetail: str(raw.status_detail, 300), pageCount, consumables },
+    value: { printerId: raw.printer_id.toLowerCase(), observedAt: new Date(t), status, statusDetail: str(raw.status_detail, 300), pageCount, queuedJobs, consumables },
   }
 }
 
