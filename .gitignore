@@ -40,3 +40,4 @@ supabase/.temp/
 
 screenshots/
 .claude/settings.local.json
+.fake-agent.json

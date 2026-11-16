@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom'
-import { ClipboardList, BarChart2, MessageSquare, Settings, Clock } from 'lucide-react'
+import { ClipboardList, BarChart2, MessageSquare, Settings, Clock, Printer } from 'lucide-react'
 
 const ITEMS = [
   { to: '/dashboard',              icon: ClipboardList, label: 'Jobs'      },
   { to: '/dashboard/earnings',     icon: BarChart2,     label: 'Earnings'  },
   { to: '/dashboard/feedback',     icon: MessageSquare, label: 'Feedback'  },
   { to: '/dashboard/availability', icon: Clock,         label: 'Hours'     },
+  { to: '/printers',               icon: Printer,       label: 'Printers'  },
   { to: '/dashboard/settings',     icon: Settings,      label: 'Settings'  }
 ]
 
