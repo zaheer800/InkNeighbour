@@ -19,6 +19,7 @@ const STATE_BADGE = {
 }
 const FILTERS = ['all', 'online', 'offline', 'attention', 'low_supplies']
 const FILTER_LABEL = { low_supplies: 'low' }
+const REMOVE_CLS = 'min-h-[48px] px-4 rounded-[14px] font-bold text-red hover:bg-red/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-red/40'
 const THRESHOLDS = [10, 15, 25, 40]
 
 function SupplyBar({ c, threshold, t }) {
@@ -27,24 +28,24 @@ function SupplyBar({ c, threshold, t }) {
   const typeLabel = t(`printers.type_${d.type}`)
   const bar = d.low ? 'bg-red' : 'bg-green'
   return (
-    <li className="py-2">
+    <li className="py-2.5">
       <div className="flex items-center justify-between gap-3 text-base">
-        <span className="font-semibold text-ink">{colourLabel} {typeLabel}</span>
+        <span className="font-semibold text-ink whitespace-nowrap">{colourLabel} {typeLabel}</span>
         {d.unavailable
-          ? <span className="text-muted">{t('printers.supply_unavailable')}</span>
+          ? <span className="text-sm text-muted text-right">{t('printers.supply_unavailable')}</span>
           : <span className="font-bold text-ink">{d.percent}%</span>}
       </div>
       {!d.unavailable && (
         <div
-          className="h-3 rounded-pill bg-border overflow-hidden mt-1"
+          className="h-2.5 rounded-pill bg-border overflow-hidden mt-1.5"
           role="progressbar" aria-valuenow={d.percent} aria-valuemin={0} aria-valuemax={100}
           aria-label={`${colourLabel} ${typeLabel}`}
         >
           <div className={`h-full ${bar}`} style={{ width: `${d.percent}%` }} />
         </div>
       )}
-      <div className="flex flex-wrap gap-x-3 text-base text-muted mt-1">
-        {!d.unavailable && <span>{t(`printers.source_${d.source}`)}</span>}
+      <div className="flex flex-wrap gap-x-3 text-sm text-muted mt-1 empty:hidden">
+        {!d.unavailable && d.source !== 'actual' && <span>{t(`printers.source_${d.source}`)}</span>}
         {d.low && <span className="font-semibold text-red">{t('printers.supply_low')}</span>}
         {d.stale && !d.unavailable && <span className="font-semibold text-amber">{t('printers.supply_old')}</span>}
       </div>
@@ -58,6 +59,7 @@ function PrinterCard({ printer, agent, supplies, t, onSave, onRemove }) {
   const [threshold, setThreshold] = useState(printer.low_supply_threshold)
   const state = printerLiveState(printer, agent)
   const seen = timeAgo(printer.last_seen_at)
+  const makeModel = [printer.manufacturer, printer.model].filter(Boolean).join(' ')
 
   async function save(e) {
     e.preventDefault()
@@ -71,19 +73,19 @@ function PrinterCard({ printer, agent, supplies, t, onSave, onRemove }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-display text-xl font-bold text-ink break-words">{printer.name}</h3>
-          <p className="text-base text-muted break-words">
-            {[printer.manufacturer, printer.model].filter(Boolean).join(' ')}
-          </p>
+          {makeModel && makeModel !== printer.name && (
+            <p className="text-base text-muted break-words">{makeModel}</p>
+          )}
+          {seen && <p className="text-sm text-muted mt-0.5">{t('printers.last_seen', { when: seen })}</p>}
         </div>
-        <Badge label={t(`printers.state_${state}`)} variant={STATE_BADGE[state]} />
+        <Badge label={t(`printers.state_${state}`)} variant={STATE_BADGE[state]} className="shrink-0 whitespace-nowrap" />
       </div>
-      {seen && <p className="text-base text-muted mt-1">{t('printers.last_seen', { when: seen })}</p>}
       {printer.status_detail && state === 'error' && (
         <p className="text-base text-red mt-2 break-words">{printer.status_detail}</p>
       )}
 
-      <div className="mt-3">
-        <p className="text-base font-semibold text-muted uppercase tracking-wide">{t('printers.supplies')}</p>
+      <div className="mt-4 pt-4 border-t border-border">
+        <p className="text-sm font-semibold text-muted uppercase tracking-wide">{t('printers.supplies')}</p>
         {supplies.length === 0
           ? <p className="text-base text-muted py-2">{t('printers.supply_unavailable')}</p>
           : <ul>{supplies.map((c) => <SupplyBar key={`${c.consumable_type}:${c.colour}`} c={c} threshold={printer.low_supply_threshold} t={t} />)}</ul>}
@@ -113,9 +115,9 @@ function PrinterCard({ printer, agent, supplies, t, onSave, onRemove }) {
           </div>
         </form>
       ) : (
-        <div className="flex gap-3 mt-4">
+        <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-border">
           <Button variant="ghost" size="md" onClick={() => setEditing(true)}>{t('printers.rename')}</Button>
-          <Button variant="muted" size="md" onClick={() => onRemove(printer)}>{t('printers.remove')}</Button>
+          <button type="button" className={REMOVE_CLS} onClick={() => onRemove(printer)}>{t('printers.remove')}</button>
         </div>
       )}
     </Card>
@@ -168,18 +170,18 @@ export default function Printers() {
       <AppNav />
       <div className="border-b border-border bg-surface px-4 py-4">
         <div className="max-w-2xl mx-auto">
-          <h1 className="font-display text-2xl font-bold text-ink">{t('printers.title')}</h1>
+          <h1 className="font-display text-xl font-bold text-ink">{t('printers.title')}</h1>
           <p className="text-base text-muted mt-0.5">{t('printers.subtitle')}</p>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-7">
         {p.loading && <p className="text-base text-muted">{t('printers.loading')}</p>}
         {p.error && <p role="alert" className="text-base text-red">{t('printers.load_error')}</p>}
 
         {openAlerts.length > 0 && (
           <section>
-            <h2 className="font-display text-xl font-bold text-ink mb-3">{t('printers.alerts_title')}</h2>
+            <h2 className="font-display text-lg font-bold text-ink mb-3">{t('printers.alerts_title')}</h2>
             <ul className="space-y-3">
               {openAlerts.map((a) => (
                 <li key={a.id} className="bg-surface border border-amber/40 rounded-xl p-4 flex items-start gap-3">
@@ -194,9 +196,9 @@ export default function Printers() {
 
         <section>
           <div className="flex items-center justify-between gap-3 mb-3">
-            <h2 className="font-display text-xl font-bold text-ink">{t('printers.computers_title')}</h2>
-            <Button variant="secondary" size="md" onClick={addComputer}>
-              <Plus size={18} />{t('printers.add_computer')}
+            <h2 className="font-display text-lg font-bold text-ink">{t('printers.computers_title')}</h2>
+            <Button variant="secondary" size="md" className="shrink-0 whitespace-nowrap" onClick={addComputer}>
+              <Plus size={18} aria-hidden="true" />{t('printers.add_computer')}
             </Button>
           </div>
           {activeAgents.length === 0 ? (
@@ -209,23 +211,23 @@ export default function Printers() {
                 return (
                   <li key={a.id}>
                     <Card>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Monitor size={24} className="text-violet shrink-0" aria-hidden="true" />
-                          <div className="min-w-0">
-                            <p className="font-semibold text-ink text-base break-words">{a.device_name}</p>
-                            <p className="text-base text-muted">{heard ? t('printers.last_heard', { when: heard }) : t('printers.never_heard')}</p>
-                          </div>
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet/10">
+                          <Monitor size={22} className="text-violet" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-ink text-base break-words">{a.device_name}</p>
+                          <p className="text-sm text-muted">{heard ? t('printers.last_heard', { when: heard }) : t('printers.never_heard')}</p>
                         </div>
                         <Badge
                           label={t(alive ? 'printers.computer_online' : 'printers.computer_offline')}
-                          variant={alive ? 'green' : 'amber'}
+                          variant={alive ? 'green' : 'amber'} className="shrink-0 whitespace-nowrap"
                         />
                       </div>
-                      <div className="mt-3">
-                        <Button variant="muted" size="md" onClick={() => setConfirm({ kind: 'agent', id: a.id })}>
+                      <div className="flex justify-end mt-3 pt-3 border-t border-border">
+                        <button type="button" className={REMOVE_CLS} onClick={() => setConfirm({ kind: 'agent', id: a.id })}>
                           {t('printers.remove_computer')}
-                        </Button>
+                        </button>
                       </div>
                     </Card>
                   </li>
@@ -236,19 +238,21 @@ export default function Printers() {
         </section>
 
         <section>
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <h2 className="font-display text-xl font-bold text-ink flex items-center gap-2">
-              <Printer size={22} aria-hidden="true" />{t('printers.printers_title')}
-            </h2>
-            <label className="flex items-center gap-2 text-base text-muted">
-              <span>{t('printers.filter_label')}</span>
-              <select
-                value={filter} onChange={(e) => setFilter(e.target.value)}
-                className="min-h-[48px] rounded-xl border border-border px-3 text-base bg-surface text-ink"
+          <h2 className="font-display text-lg font-bold text-ink flex items-center gap-2 mb-3">
+            <Printer size={20} aria-hidden="true" />{t('printers.printers_title')}
+          </h2>
+          <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-hide" role="group" aria-label={t('printers.filter_label')}>
+            {FILTERS.map((f) => (
+              <button
+                key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f}
+                className={[
+                  'flex-shrink-0 min-h-[48px] px-4 rounded-pill text-base font-semibold transition-colors',
+                  filter === f ? 'bg-violet text-white' : 'bg-surface text-muted hover:bg-border',
+                ].join(' ')}
               >
-                {FILTERS.map((f) => <option key={f} value={f}>{t(`printers.filter_${FILTER_LABEL[f] ?? f}`)}</option>)}
-              </select>
-            </label>
+                {t(`printers.filter_${FILTER_LABEL[f] ?? f}`)}
+              </button>
+            ))}
           </div>
           {p.printers.length === 0 ? (
             <Card><p className="text-base text-muted">{t('printers.printers_empty')}</p></Card>
