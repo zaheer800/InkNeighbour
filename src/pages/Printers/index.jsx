@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Printer, Monitor, Plus, AlertTriangle } from 'lucide-react'
+import { Printer, Monitor, Plus, AlertTriangle, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { usePrinters } from '../../hooks/usePrinters'
 import {
@@ -142,6 +142,12 @@ export default function Printers() {
     else setPairing(code)
   }
 
+  async function download() {
+    const { url, error } = await p.getAgentDownloadUrl()
+    if (error || !url) toast.error(t('printers.pair_download_error'))
+    else window.location.assign(url)
+  }
+
   async function save(id, patch) {
     const { error } = await p.updatePrinter(id, patch)
     if (error) { toast.error(t('printers.action_failed')); return false }
@@ -275,6 +281,9 @@ export default function Printers() {
       <Modal open={!!pairing} onClose={() => setPairing(null)} title={t('printers.pair_title')}>
         <div className="space-y-3 text-base text-ink">
           <p>{t('printers.pair_step1')}</p>
+          <Button variant="primary" size="md" className="w-full" onClick={download}>
+            <Download size={20} aria-hidden="true" /> {t('printers.pair_download')}
+          </Button>
           <p>{t('printers.pair_step2')}</p>
           <p className="font-display text-3xl font-bold tracking-widest text-center bg-bg rounded-xl py-4 select-all">
             {formatPairingCode(pairing)}

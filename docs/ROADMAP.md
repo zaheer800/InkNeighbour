@@ -137,7 +137,7 @@ Spec: `docs/printer-management-spec.md`. PRD: `docs/PRD_V1.2-printer-management.
 Not part of the Wave 1/2 items above.
 
 - [x] P1. Cloud foundation: migration 027, `printer-agent` function, My Printers page, fake agent.
-- [ ] P2. Windows agent read-only monitoring (needs a real printer at the pilot shop).
+- [x] P2. Windows agent read-only monitoring: built in `agent/` (.NET 10 Worker Service, WMI + SNMP). Windows-only paths still need a pilot check on a real PC and printer.
 - [ ] P3. Print execution (off by default, owner-triggered test job).
 - [ ] P4. Marketplace integration.
 - [ ] P5. (Deferred) Bulk quote requests / bidding.

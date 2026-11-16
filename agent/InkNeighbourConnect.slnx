@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/InkNeighbourConnect/InkNeighbourConnect.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/InkNeighbourConnect.Tests/InkNeighbourConnect.Tests.csproj" />
+  </Folder>
+</Solution>

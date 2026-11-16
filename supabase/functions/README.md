@@ -12,3 +12,9 @@
 The three deployed functions send mail from `inkneighbour@mail.zakapedia.in` (secrets
 `RESEND_API_KEY` and `FROM_EMAIL` on the project). Browser access is limited to
 `ALLOWED_ORIGINS` (default: the production site and `http://localhost:5173`).
+
+## agent-download
+
+Returns `{url, expires_in}`: a 60-second signed link to the Windows agent zip in the private `agent-releases`
+bucket. Deployed with `verify_jwt = true`; the function also checks the caller is a real signed-in user, so the
+public anon key gets 401. The bucket has no storage policies on purpose (see migration 028).
