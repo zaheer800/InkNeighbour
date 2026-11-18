@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { ClipboardList, BarChart2, MessageSquare, Settings, Clock, Printer } from 'lucide-react'
+import { ClipboardList, BarChart2, MessageSquare, Settings, Clock, Printer, Store } from 'lucide-react'
 
 const ITEMS = [
   { to: '/dashboard',              icon: ClipboardList, label: 'Jobs'      },
@@ -7,6 +7,7 @@ const ITEMS = [
   { to: '/dashboard/feedback',     icon: MessageSquare, label: 'Feedback'  },
   { to: '/dashboard/availability', icon: Clock,         label: 'Hours'     },
   { to: '/printers',               icon: Printer,       label: 'Printers'  },
+  { to: '/dashboard/profile',      icon: Store,         label: 'Shop'      },
   { to: '/dashboard/settings',     icon: Settings,      label: 'Settings'  }
 ]
 

@@ -94,9 +94,10 @@ export default function ShopPage() {
             id, name, slug, shop_name, shop_address, locality, landmark, lat, lng,
             status, bw_rate, color_rate, delivery_fee, upi_id, accept_cash,
             country_code, phone, max_active_jobs, provider_type, gst_number,
+            banner_url, description,
             manual_state, system_override, override_expires_at,
             feedback(star_rating),
-            service_menu(service_code, is_enabled, display_price),
+            service_menu(service_code, is_enabled, display_price, name, is_preset),
             delivery_fee_tiers(max_km, fee)
           `)
           .eq('slug', slug)
@@ -374,6 +375,16 @@ export default function ShopPage() {
         className="relative overflow-hidden text-white"
         style={{ background: 'linear-gradient(135deg, #0A0A0F 0%, #1A1A2E 55%, #1E1040 100%)' }}
       >
+        {/* Owner-uploaded banner image, faded behind the gradient */}
+        {owner.banner_url && (
+          <img
+            src={owner.banner_url}
+            alt=""
+            aria-hidden
+            className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none select-none"
+          />
+        )}
+
         {/* Decorative faded printer in background */}
         <div className="absolute -right-6 -top-4 opacity-[0.04] pointer-events-none select-none" aria-hidden>
           <Printer size={260} strokeWidth={0.7} />
@@ -445,6 +456,11 @@ export default function ShopPage() {
             <p className="text-white/70 text-base mb-4">
               Right in your building · <span className="text-white font-semibold">{society?.name || 'Your society'}</span>
             </p>
+          )}
+
+          {/* Owner-entered description/tagline — JSX text node, React escapes it */}
+          {owner.description && (
+            <p className="text-white/80 text-sm mb-4 leading-relaxed">{owner.description}</p>
           )}
 
           {/* Rating */}
@@ -648,23 +664,25 @@ export default function ShopPage() {
             </div>
           ) : null}
 
-          {/* Services — show only enabled ones as a clean list */}
+          {/* Services — show only enabled ones (presets + owner-added custom services) */}
           {owner.service_menu?.filter(s => s.is_enabled).length > 0 && (
             <div className="bg-surface rounded-2xl shadow-card p-4">
               <p className="font-bold text-base text-ink mb-3">{t('shop.services_title')}</p>
               <div className="divide-y divide-border">
                 {owner.service_menu.filter(s => s.is_enabled).map(s => {
-                  const META = { scan: { icon: ScanLine, label: 'Scanning' }, photocopy: { icon: CopyIcon, label: 'Photocopy' }, binding: { icon: BookOpen, label: 'Binding' }, lamination: { icon: Layers, label: 'Lamination' }, passport_photo: { icon: Camera, label: 'Passport Photo' } }
-                  const m = META[s.service_code]
-                  if (!m) return null
-                  const Icon = m.icon
+                  const PRESET_META = { scan: { icon: ScanLine, label: 'Scanning' }, photocopy: { icon: CopyIcon, label: 'Photocopy' }, binding: { icon: BookOpen, label: 'Binding' }, lamination: { icon: Layers, label: 'Lamination' }, passport_photo: { icon: Camera, label: 'Passport Photo' } }
+                  const m = PRESET_META[s.service_code]
+                  const Icon = m?.icon || Package
+                  // Custom (non-preset) services use the owner-entered `name`; JSX text
+                  // node, so React escapes it — safe against stored XSS.
+                  const label = s.is_preset ? (t(`services.${s.service_code}`) || m?.label || s.service_code) : s.name
                   return (
-                    <div key={s.service_code} className="flex items-center justify-between py-2.5">
+                    <div key={s.id ?? s.service_code} className="flex items-center justify-between py-2.5">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-violet/10 flex items-center justify-center flex-shrink-0">
                           <Icon size={15} className="text-violet" />
                         </div>
-                        <span className="text-sm font-semibold text-ink">{t(`services.${s.service_code}`) || m.label}</span>
+                        <span className="text-sm font-semibold text-ink">{label}</span>
                       </div>
                       {s.display_price
                         ? <span className="text-sm font-bold text-violet">{s.display_price}</span>

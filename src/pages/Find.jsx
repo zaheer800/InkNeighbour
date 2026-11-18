@@ -102,6 +102,7 @@ export default function Find() {
             .select(`
               id, name, slug, shop_name, shop_address, locality, landmark, lat, lng,
               status, bw_rate, color_rate, delivery_fee, country_code, provider_type,
+              banner_url, description,
               manual_state, system_override, override_expires_at,
               feedback(star_rating),
               delivery_fee_tiers(max_km, fee)
@@ -145,6 +146,7 @@ export default function Find() {
         .select(`
           id, name, slug, shop_name, shop_address, locality, landmark, lat, lng,
           status, bw_rate, color_rate, delivery_fee, country_code, provider_type,
+          banner_url, description,
           manual_state, system_override, override_expires_at,
           feedback(star_rating),
           delivery_fee_tiers(max_km, fee)
@@ -298,10 +300,24 @@ export default function Find() {
           const badgeBg = isShop ? '#ede9fe' : '#fff7ed'
           const badgeClr = isShop ? '#7C3AED' : '#FF6B35'
 
+          // Banner/description are owner-entered — only trust an https URL, and
+          // escape both before splicing into this raw HTML string.
+          const bannerUrl = typeof owner.banner_url === 'string' && owner.banner_url.startsWith('https://')
+            ? owner.banner_url
+            : null
+          const bannerHtml = bannerUrl
+            ? `<img src="${escapeHtml(bannerUrl)}" alt="" style="width:100%;height:60px;object-fit:cover;border-radius:6px;margin-bottom:6px;" />`
+            : ''
+          const descriptionHtml = owner.description
+            ? `<p style="font-size:11px;color:#374151;margin:0 0 8px;line-height:1.4">${escapeHtml(owner.description)}</p>`
+            : ''
+
           const popupHtml = `<div style="min-width:180px;font-family:Inter,sans-serif;">
+  ${bannerHtml}
   <span style="font-size:11px;font-weight:700;padding:2px 6px;border-radius:100px;background:${badgeBg};color:${badgeClr};display:inline-block;margin-bottom:6px;">${badge}</span>
   <p style="font-weight:700;font-size:13px;color:#0A0A0F;line-height:1.3;margin:0 0 2px">${escapeHtml(shopTitle)}</p>
   <p style="font-size:11px;color:#6B7280;margin:0 0 8px">by ${escapeHtml(String(owner.name ?? '').split(' ')[0])}</p>
+  ${descriptionHtml}
   <div style="display:flex;gap:6px;font-size:11px;flex-wrap:wrap;margin-bottom:${slug ? '8' : '0'}px">
     <span style="background:#F4F3FF;padding:2px 8px;border-radius:100px;">B&amp;W ${escapeHtml(fmt(owner.bw_rate))}/pg</span>
     <span style="background:#F4F3FF;padding:2px 8px;border-radius:100px;">Colour ${escapeHtml(fmt(owner.color_rate))}/pg</span>
