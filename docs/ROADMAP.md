@@ -144,6 +144,46 @@ Not part of the Wave 1/2 items above.
 - Decision (2026-11-16): the agent ships **unsigned** (code-signing cost is prohibitive for now). Windows SmartScreen will warn; the Add computer steps tell owners to click More info, then Run anyway.
 - Pending: pilot shop (printer make/model, digital vs offset, Windows PC) not yet known, so the Windows paths (installer, service, WMI discovery, DPAPI, queue accuracy) remain untested on real hardware. CI now builds and tests the agent on Linux (`agent` job).
 - Not built: remote management (pause, resume, cancel jobs). Needs a secure command channel and a separately reviewed design; overlaps P3.
-- [ ] P3. Print execution (off by default, owner-triggered test job).
+- [ ] P3. Print execution (off by default, owner-triggered test job). Broken into slices below
+  (added 2026-11-17, informed by reverse-engineering a competitor Windows print agent during
+  software research -- see ContextForge zakapedia for the full writeup):
+  - [ ] P3a. Local print dispatch: bundle SumatraPDF with the agent; silent-print via
+    `-print-to <printer> -silent -print-settings "Nx,[monochrome|color],<extra>"`; on failure,
+    retry once against the system default printer; if SumatraPDF itself is missing, fall back to
+    the OS print-verb (`ShellExecute`) as a last resort. Printer enumeration (already built in P2
+    via WMI) stays a separate layer from this dispatch step.
+  - [ ] P3b. Approval gating -- fail-closed, remote-first. Cash-mode jobs needing confirmation
+    hold server-side and notify the owner via the existing WhatsApp outbox; approve from the
+    phone, not a desktop popup. If the owner can't be reached, the job stays held -- never
+    print-anyway. (Deliberately the opposite of the competitor's fail-open default.)
+  - [ ] P3c. Printer-role mapping: let the owner assign which discovered printer handles which
+    job type (e.g. B&W vs Color) on the My Printers page, feeding into P3a's dispatch target. Add
+    a manual test-print action to verify a mapping before relying on it.
+  - [ ] P3d. Fallback visibility: when a job falls back to the default printer or the OS
+    print-verb path, record that on the job row so it's visible in the dashboard instead of only
+    in a local agent log.
+  - [ ] P3e. Page selection: let a customer pick specific pages from a multi-page upload to
+    print, instead of always printing every page.
 - [ ] P4. Marketplace integration.
 - [ ] P5. (Deferred) Bulk quote requests / bidding.
+
+### Owner-facing feature backlog (from competitor analysis, 2026-11-17)
+
+Not scheduled against P1-P5 above; ranked by value-for-effort. Pull an item into the numbered
+list once prioritized for a run.
+
+- [ ] Daily business summary (orders today, total earned, cash vs online split) on the owner
+  dashboard.
+- [ ] One-tap WhatsApp/PDF end-of-day report, built on the existing notification outbox.
+- [ ] Supply status flag (owner marks low ink / no paper; shown to customers before they order).
+- [ ] Shop Open/Closed toggle with a scheduled reopen time and a literal preview of what the
+  customer sees when closed.
+- [ ] QR code + downloadable poster for counter onboarding.
+- [ ] Agent self-update mechanism, so shops don't need a manual reinstall walk-through.
+- [ ] One-agent-per-shop device lock with a self-service "disconnect old computer" recovery
+  message.
+- Parked: document-photo perspective-crop (customer marks the 4 corners of a photographed paper
+  document; app straightens/crops before printing). Real feature in the competitor product, but
+  conflicts with the elder-friendly/minimal-interaction UI constraint and isn't a confirmed
+  InkNeighbour use case (most customers likely upload files, not photos of paper) -- revisit only
+  if usage data shows otherwise.
