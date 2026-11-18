@@ -110,6 +110,9 @@ export default function ProviderCard({ owner, slug, backHref, isOpen, distanceKm
           </div>
           <p className="text-muted text-sm mt-0.5">{t('find.managed_by', { name: owner.name.split(' ')[0] })}</p>
           {location && <p className="text-sm text-muted">{location}</p>}
+          {owner.description && (
+            <p className="text-sm text-muted mt-1 line-clamp-1">{owner.description}</p>
+          )}
         </div>
 
       </div>
