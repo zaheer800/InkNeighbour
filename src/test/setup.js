@@ -58,7 +58,9 @@ vi.mock('../lib/supabase', () => ({
       from: vi.fn().mockReturnValue({
         upload: vi.fn().mockResolvedValue({ data: {}, error: null }),
         remove: vi.fn().mockResolvedValue({ data: {}, error: null }),
-        createSignedUrl: vi.fn().mockResolvedValue({ data: { signedUrl: 'https://example.com/file.pdf' }, error: null })
+        list: vi.fn().mockResolvedValue({ data: [], error: null }),
+        createSignedUrl: vi.fn().mockResolvedValue({ data: { signedUrl: 'https://example.com/file.pdf' }, error: null }),
+        getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://example.com/logos/banner.png' } })
       })
     }
   }
