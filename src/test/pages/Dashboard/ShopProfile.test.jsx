@@ -139,12 +139,12 @@ describe('ShopProfile — shop-type owner', () => {
     expect(updates).not.toHaveProperty('accept_cash')
   })
 
-  it('inserts a new custom service row when added', async () => {
+  it('inserts a new custom service row when added via the manual form', async () => {
     // Initial load resolves via chain.then() with the array of existing rows;
     // the insert flow resolves via the separate chain.single() mock below.
     const insertChain = makeChain(SERVICE_ROWS)
     insertChain.single = vi.fn().mockResolvedValue({
-      data: { id: 's7', owner_id: 'owner-1', service_code: 'custom_new', name: 'Spiral', is_preset: false, is_enabled: true, display_price: null },
+      data: { id: 's7', owner_id: 'owner-1', service_code: 'custom_new', name: 'Typing', is_preset: false, is_enabled: true, display_price: null },
       error: null,
     })
     vi.mocked(supabase.from).mockImplementation((table) => {
@@ -153,12 +153,39 @@ describe('ShopProfile — shop-type owner', () => {
       return makeChain()
     })
     renderPage()
-    await waitFor(() => expect(screen.getByText('shop_profile.add_custom_service')).toBeInTheDocument())
-    await userEvent.click(screen.getByText('shop_profile.add_custom_service'))
+    await waitFor(() => expect(screen.getByText('shop_profile.add_own_service')).toBeInTheDocument())
+    await userEvent.click(screen.getByText('shop_profile.add_own_service'))
     const nameInput = screen.getByPlaceholderText('shop_profile.custom_name_placeholder')
-    await userEvent.type(nameInput, 'Spiral')
-    await userEvent.click(screen.getByText('shop_profile.add_custom_service'))
+    await userEvent.type(nameInput, 'Typing')
+    await userEvent.click(screen.getByText('shop_profile.add_service_submit'))
     await waitFor(() => expect(insertChain.insert).toHaveBeenCalled())
+  })
+
+  it('inserts a service immediately when a suggestion chip is tapped', async () => {
+    const insertChain = makeChain(SERVICE_ROWS)
+    insertChain.single = vi.fn().mockResolvedValue({
+      data: { id: 's7', owner_id: 'owner-1', service_code: 'custom_new', name: 'Stapling', is_preset: false, is_enabled: true, display_price: null },
+      error: null,
+    })
+    vi.mocked(supabase.from).mockImplementation((table) => {
+      if (table === 'service_menu') return insertChain
+      if (table === 'delivery_fee_tiers') return makeChain(TIER_ROWS)
+      return makeChain()
+    })
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Stapling')).toBeInTheDocument())
+    await userEvent.click(screen.getByText('Stapling'))
+    await waitFor(() => expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Stapling', is_preset: false, is_enabled: true })
+    ))
+  })
+
+  it('does not suggest a service that has already been added', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText('shop_profile.suggested_services_title')).toBeInTheDocument())
+    // "Spiral binding" already exists as a custom service in SERVICE_ROWS — the
+    // suggestion list uses "Spiral Binding" (different case) and must not duplicate it.
+    expect(screen.queryByText('Spiral Binding')).not.toBeInTheDocument()
   })
 })
 
