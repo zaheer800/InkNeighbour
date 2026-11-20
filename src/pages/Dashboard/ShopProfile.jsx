@@ -19,6 +19,15 @@ const SERVICE_LABELS = {
   passport_photo: 'Passport Photos',
 }
 
+const SUGGESTED_SERVICES = [
+  'Spiral Binding',
+  'Hard Binding',
+  'ID Card Printing',
+  'Stapling',
+  'Typing / DTP',
+  'Resume Printing',
+]
+
 const MAX_BANNER_SIZE = 5 * 1024 * 1024 // 5MB
 const BANNER_TYPES = {
   'image/png':  ['.png'],
@@ -48,6 +57,7 @@ export default function ShopProfile() {
   const [savingServices, setSavingServices] = useState(false)
   const [addingCustom, setAddingCustom] = useState(false)
   const [customDraft, setCustomDraft] = useState({ name: '', display_price: '' })
+  const [addingChip, setAddingChip] = useState(null)
 
   const [tiers, setTiers] = useState([])
   const [deletedTierIds, setDeletedTierIds] = useState([])
@@ -204,25 +214,38 @@ export default function ShopProfile() {
     else toast.success(t('settings.saved'))
   }
 
-  async function handleAddCustomService() {
-    const name = customDraft.name.trim()
-    if (!name) return
+  async function addService(name, displayPrice = '') {
+    const trimmedName = name.trim()
+    if (!trimmedName) return null
 
     const row = {
       owner_id:      owner.id,
       service_code:  makeCustomServiceCode(),
-      name,
+      name:          trimmedName,
       is_preset:     false,
       is_enabled:    true,
-      display_price: customDraft.display_price.trim() || null,
+      display_price: displayPrice.trim() || null,
     }
 
     const { data, error } = await supabase.from('service_menu').insert(row).select().single()
-    if (error) { toast.error(t('errors.network')); return }
+    if (error) { toast.error(t('errors.network')); return null }
     setServices(prev => [...prev, data])
-    setCustomDraft({ name: '', display_price: '' })
-    setAddingCustom(false)
     toast.success(t('settings.saved'))
+    return data
+  }
+
+  async function handleAddCustomService() {
+    const added = await addService(customDraft.name, customDraft.display_price)
+    if (added) {
+      setCustomDraft({ name: '', display_price: '' })
+      setAddingCustom(false)
+    }
+  }
+
+  async function handleAddSuggestedService(name) {
+    setAddingChip(name)
+    await addService(name)
+    setAddingChip(null)
   }
 
   async function handleRemoveCustomService(id) {
@@ -302,6 +325,8 @@ export default function ShopProfile() {
 
   const presetServices = services.filter(s => s.is_preset)
   const customServices = services.filter(s => !s.is_preset)
+  const customServiceNames = new Set(customServices.map(s => s.name?.toLowerCase()))
+  const suggestedServices = SUGGESTED_SERVICES.filter(name => !customServiceNames.has(name.toLowerCase()))
 
   return (
     <div className="min-h-screen bg-bg pb-24">
@@ -577,6 +602,26 @@ export default function ShopProfile() {
               </div>
             )}
 
+            {suggestedServices.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold text-ink mb-2">{t('shop_profile.suggested_services_title')}</p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedServices.map(name => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => handleAddSuggestedService(name)}
+                      disabled={addingChip === name}
+                      className="flex items-center gap-1.5 px-4 min-h-[44px] rounded-full border border-violet/30 bg-violet/5 text-sm font-semibold text-violet hover:bg-violet/10 transition-colors disabled:opacity-50"
+                    >
+                      <Plus size={16} />
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {addingCustom ? (
               <div className="p-3 rounded-xl bg-bg space-y-2">
                 <input
@@ -597,7 +642,7 @@ export default function ShopProfile() {
                 />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleAddCustomService} className="flex-1">
-                    {t('shop_profile.add_custom_service')}
+                    {t('shop_profile.add_service_submit')}
                   </Button>
                   <Button size="sm" variant="muted" onClick={() => { setAddingCustom(false); setCustomDraft({ name: '', display_price: '' }) }}>
                     {t('shop_profile.cancel_add')}
@@ -611,7 +656,7 @@ export default function ShopProfile() {
                 className="flex items-center gap-1.5 text-sm font-semibold text-violet hover:text-violet/80 transition-colors min-h-[44px]"
               >
                 <Plus size={16} />
-                {t('shop_profile.add_custom_service')}
+                {t('shop_profile.add_own_service')}
               </button>
             )}
 

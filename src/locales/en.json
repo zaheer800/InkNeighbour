@@ -253,7 +253,9 @@
     "remove_tier": "Remove tier",
     "save_delivery": "Save delivery pricing",
     "services_custom_title": "Custom services",
-    "add_custom_service": "Add custom service",
+    "suggested_services_title": "Quick add",
+    "add_own_service": "Add your own service",
+    "add_service_submit": "Add service",
     "custom_name_placeholder": "Service name, e.g. Spiral binding",
     "custom_price_placeholder": "e.g. ₹20",
     "cancel_add": "Cancel"
