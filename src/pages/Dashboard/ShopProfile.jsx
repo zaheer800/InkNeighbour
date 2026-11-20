@@ -539,8 +539,8 @@ export default function ShopProfile() {
 
             <div className="space-y-3">
               {presetServices.map(svc => (
-                <div key={svc.id} className="flex items-start gap-3 p-3 rounded-xl bg-bg">
-                  <label className="flex items-center gap-2 flex-1 min-h-[44px] cursor-pointer">
+                <div key={svc.id} className="p-3 rounded-xl bg-bg space-y-2">
+                  <label className="flex items-center gap-2 min-h-[44px] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={svc.is_enabled}
@@ -558,7 +558,7 @@ export default function ShopProfile() {
                       onChange={e => setSvc(svc.id, 'display_price', e.target.value)}
                       placeholder="e.g. ₹5/page"
                       maxLength={40}
-                      className="w-28 border border-border rounded-xl px-3 py-2 text-sm bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-violet/40 placeholder:text-muted"
+                      className="w-full ml-7 max-w-[calc(100%-1.75rem)] min-h-[44px] border border-border rounded-xl px-3 py-2 text-sm bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-violet/40 placeholder:text-muted"
                     />
                   )}
                 </div>
@@ -570,32 +570,34 @@ export default function ShopProfile() {
                 <p className="text-sm font-semibold text-ink mb-2">{t('shop_profile.services_custom_title')}</p>
                 <div className="space-y-3">
                   {customServices.map(svc => (
-                    <div key={svc.id} className="flex items-start gap-3 p-3 rounded-xl bg-bg">
-                      <label className="flex items-center gap-2 flex-1 min-h-[44px] cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={svc.is_enabled}
-                          onChange={e => setSvc(svc.id, 'is_enabled', e.target.checked)}
-                          className="w-5 h-5 rounded accent-violet flex-shrink-0"
-                        />
-                        <span className="text-base font-medium text-ink">{svc.name}</span>
-                      </label>
+                    <div key={svc.id} className="p-3 rounded-xl bg-bg space-y-2">
+                      <div className="flex items-start gap-3">
+                        <label className="flex items-center gap-2 flex-1 min-h-[44px] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={svc.is_enabled}
+                            onChange={e => setSvc(svc.id, 'is_enabled', e.target.checked)}
+                            className="w-5 h-5 rounded accent-violet flex-shrink-0"
+                          />
+                          <span className="text-base font-medium text-ink">{svc.name}</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCustomService(svc.id)}
+                          className="text-muted hover:text-red transition-colors min-h-[44px] min-w-[36px] flex items-center justify-center flex-shrink-0"
+                          aria-label="Remove service"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                       <input
                         type="text"
                         value={svc.display_price || ''}
                         onChange={e => setSvc(svc.id, 'display_price', e.target.value)}
                         placeholder="e.g. ₹5/page"
                         maxLength={40}
-                        className="w-28 border border-border rounded-xl px-3 py-2 text-sm bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-violet/40 placeholder:text-muted"
+                        className="w-full ml-7 max-w-[calc(100%-1.75rem)] min-h-[44px] border border-border rounded-xl px-3 py-2 text-sm bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-violet/40 placeholder:text-muted"
                       />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCustomService(svc.id)}
-                        className="text-muted hover:text-red transition-colors min-h-[44px] min-w-[36px] flex items-center justify-center"
-                        aria-label="Remove service"
-                      >
-                        <Trash2 size={16} />
-                      </button>
                     </div>
                   ))}
                 </div>
