@@ -25,3 +25,13 @@ export function makeShopSlug(societyName, suffix) {
   const base = slugify(societyName)
   return suffix ? `${base}-${slugify(suffix)}` : base
 }
+
+/**
+ * Build an owner's public shop URL, or '' if they have no slug yet
+ * (falls back to their society's slug for legacy rows without their own).
+ * @param {{ slug?: string, societies?: { slug?: string } }} owner
+ */
+export function getShopUrl(owner) {
+  const shopSlug = owner?.slug || owner?.societies?.slug || ''
+  return shopSlug ? `${window.location.origin}/${shopSlug}` : ''
+}

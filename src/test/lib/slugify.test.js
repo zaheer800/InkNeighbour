@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { slugify, makeShopSlug } from '../../lib/slugify'
+import { slugify, makeShopSlug, getShopUrl } from '../../lib/slugify'
 
 describe('slugify', () => {
   it('converts spaces to hyphens', () => {
@@ -50,5 +50,25 @@ describe('makeShopSlug', () => {
 
   it('slugifies both name and suffix', () => {
     expect(makeShopSlug('Green Valley', 'Mumbai West')).toBe('green-valley-mumbai-west')
+  })
+})
+
+describe('getShopUrl', () => {
+  it('builds a URL from the owner\'s own slug', () => {
+    expect(getShopUrl({ slug: 'quick-print' })).toBe(`${window.location.origin}/quick-print`)
+  })
+
+  it('falls back to the society slug for legacy rows without their own slug', () => {
+    expect(getShopUrl({ societies: { slug: 'green-valley' } })).toBe(`${window.location.origin}/green-valley`)
+  })
+
+  it('prefers the owner\'s own slug over the society slug', () => {
+    expect(getShopUrl({ slug: 'quick-print', societies: { slug: 'green-valley' } })).toBe(`${window.location.origin}/quick-print`)
+  })
+
+  it('returns empty string when there is no slug anywhere', () => {
+    expect(getShopUrl({})).toBe('')
+    expect(getShopUrl(null)).toBe('')
+    expect(getShopUrl(undefined)).toBe('')
   })
 })

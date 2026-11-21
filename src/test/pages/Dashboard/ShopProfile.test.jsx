@@ -41,7 +41,7 @@ function makeChain(data = null, error = null) {
 }
 
 const SHOP_OWNER = {
-  id: 'owner-1', provider_type: 'shop', shop_name: 'Quick Print',
+  id: 'owner-1', provider_type: 'shop', shop_name: 'Quick Print', slug: 'quick-print',
   description: 'Fast printing near the metro', banner_url: null,
   shop_address: '12 Main St', locality: 'Tarnaka', landmark: '', gst_number: '',
   lat: 17.4, lng: 78.5, bw_rate: 200, color_rate: 500, delivery_fee: 0,
@@ -260,6 +260,20 @@ describe('ShopProfile — shop-type owner', () => {
     await waitFor(() => expect(insertChain.insert).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Water bill' })
     ))
+  })
+
+  it('shows the shop link with a copy button and a QR code button', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText(/quick-print/)).toBeInTheDocument())
+    expect(screen.getByText('earnings.qr_button')).toBeInTheDocument()
+  })
+
+  it('opens the printable QR view when the QR button is tapped', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText('earnings.qr_button')).toBeInTheDocument())
+    expect(screen.queryByText('earnings.qr_scan_hint')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByText('earnings.qr_button'))
+    expect(screen.getByText('earnings.qr_scan_hint')).toBeInTheDocument()
   })
 })
 

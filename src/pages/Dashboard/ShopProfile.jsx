@@ -2,14 +2,17 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDropzone } from 'react-dropzone'
 import { toast } from 'sonner'
-import { Image as ImageIcon, X, Plus, Trash2 } from 'lucide-react'
+import { Image as ImageIcon, X, Plus, Trash2, Copy, QrCode } from 'lucide-react'
 import { useOwner } from '../../hooks/useOwner'
 import { supabase } from '../../lib/supabase'
+import { getShopUrl } from '../../lib/slugify'
+import { copyToClipboard } from '../../lib/clipboard'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import AppNav from '../../components/AppNav'
 import DashboardNav from '../../components/DashboardNav'
 import ShopLocationMap from '../../components/ShopLocationMap'
+import ShopQRCode from '../../components/ShopQRCode'
 
 const SERVICE_LABELS = {
   scan:           'Scanning',
@@ -77,7 +80,18 @@ export default function ShopProfile() {
   const [addingOwnExpense, setAddingOwnExpense] = useState(false)
   const [expenseDraft, setExpenseDraft] = useState({ name: '', monthly_amount: '' })
 
+  const [copied, setCopied] = useState(false)
+  const [showQR, setShowQR] = useState(false)
+
   const isShop = owner?.provider_type === 'shop'
+  const shopUrl = getShopUrl(owner)
+
+  function copyShopLink() {
+    copyToClipboard(shopUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   useEffect(() => {
     if (!owner) return
@@ -426,6 +440,22 @@ export default function ShopProfile() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+
+        {/* ── Shop link ──────────────────────────────────────────────────── */}
+        {shopUrl && (
+          <section className="bg-surface rounded-xl shadow-card p-5 space-y-3">
+            <h2 className="font-bold text-lg text-ink">{t('earnings.share_link')}</h2>
+            <div className="flex items-center gap-2 bg-bg border border-border rounded-xl px-4 py-3">
+              <span className="flex-1 font-mono text-sm text-ink break-all">{shopUrl}</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={copyShopLink} className="w-full">
+              <Copy size={16} /> {copied ? 'Copied!' : t('success.copy_link')}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowQR(true)} className="w-full">
+              <QrCode size={16} /> {t('earnings.qr_button')}
+            </Button>
+          </section>
+        )}
 
         {/* ── Banner ─────────────────────────────────────────────────────── */}
         <section className="bg-surface rounded-xl shadow-card p-5 space-y-4">
@@ -895,6 +925,14 @@ export default function ShopProfile() {
           </section>
         )}
       </div>
+
+      {showQR && (
+        <ShopQRCode
+          shopUrl={shopUrl}
+          shopName={owner?.shop_name || ''}
+          onClose={() => setShowQR(false)}
+        />
+      )}
 
       <DashboardNav />
     </div>
