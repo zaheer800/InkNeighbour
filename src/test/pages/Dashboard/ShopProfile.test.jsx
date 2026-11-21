@@ -45,6 +45,9 @@ const SHOP_OWNER = {
   description: 'Fast printing near the metro', banner_url: null,
   shop_address: '12 Main St', locality: 'Tarnaka', landmark: '', gst_number: '',
   lat: 17.4, lng: 78.5, bw_rate: 200, color_rate: 500, delivery_fee: 0,
+  bw_cartridge_price: 65000, bw_cartridge_yield: 1500,
+  color_cartridge_price: 150000, color_cartridge_yield: 400,
+  paper_price: 30000, paper_sheets_per_ream: 500,
 }
 
 const HOME_OWNER = {
@@ -65,6 +68,10 @@ const SERVICE_ROWS = [
 const TIER_ROWS = [
   { id: 't1', max_km: '1.0', fee: 1500 },
   { id: 't2', max_km: '2.0', fee: 2500 },
+]
+
+const EXPENSE_ROWS = [
+  { id: 'e1', owner_id: 'owner-1', name: 'Rent', monthly_amount: 500000 },
 ]
 
 function renderPage() {
@@ -88,6 +95,7 @@ describe('ShopProfile — shop-type owner', () => {
     vi.mocked(supabase.from).mockImplementation((table) => {
       if (table === 'service_menu') return makeChain(SERVICE_ROWS)
       if (table === 'delivery_fee_tiers') return makeChain(TIER_ROWS)
+      if (table === 'owner_expenses') return makeChain(EXPENSE_ROWS)
       return makeChain()
     })
   })
@@ -139,6 +147,30 @@ describe('ShopProfile — shop-type owner', () => {
     expect(updates).not.toHaveProperty('accept_cash')
   })
 
+  it('pre-fills cartridge and paper cost fields from the owner row', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByDisplayValue('650')).toBeInTheDocument())
+    // bw_cartridge_yield (1500) and color_cartridge_price in rupees (150000/100=1500) coincide
+    expect(screen.getAllByDisplayValue('1500')).toHaveLength(2)
+    expect(screen.getByDisplayValue('400')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('300')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('500')).toBeInTheDocument()
+  })
+
+  it('includes cartridge and paper fields in the save payload', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText('shop_profile.save_shop_info')).toBeInTheDocument())
+    screen.getByText('shop_profile.save_shop_info').click()
+    await waitFor(() => expect(mockUpdateOwner).toHaveBeenCalled())
+    const updates = mockUpdateOwner.mock.calls[0][0]
+    expect(updates.bw_cartridge_price).toBe(65000)
+    expect(updates.bw_cartridge_yield).toBe(1500)
+    expect(updates.color_cartridge_price).toBe(150000)
+    expect(updates.color_cartridge_yield).toBe(400)
+    expect(updates.paper_price).toBe(30000)
+    expect(updates.paper_sheets_per_ream).toBe(500)
+  })
+
   it('inserts a new custom service row when added via the manual form', async () => {
     // Initial load resolves via chain.then() with the array of existing rows;
     // the insert flow resolves via the separate chain.single() mock below.
@@ -186,6 +218,56 @@ describe('ShopProfile — shop-type owner', () => {
     // "Spiral binding" already exists as a custom service in SERVICE_ROWS — the
     // suggestion list uses "Spiral Binding" (different case) and must not duplicate it.
     expect(screen.queryByText('Spiral Binding')).not.toBeInTheDocument()
+  })
+
+  it('shows existing expenses and does not suggest one already added', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Rent')).toBeInTheDocument())
+    expect(screen.getByText('shop_profile.expenses_suggested_title')).toBeInTheDocument()
+    // "Rent" is already in EXPENSE_ROWS — must not also appear as a suggestion chip.
+    expect(screen.queryByRole('button', { name: /Rent/ })).not.toBeInTheDocument()
+  })
+
+  it('inserts an expense immediately when a suggestion chip is tapped', async () => {
+    const insertChain = makeChain(EXPENSE_ROWS)
+    insertChain.single = vi.fn().mockResolvedValue({
+      data: { id: 'e2', owner_id: 'owner-1', name: 'Electricity', monthly_amount: 0 },
+      error: null,
+    })
+    vi.mocked(supabase.from).mockImplementation((table) => {
+      if (table === 'service_menu') return makeChain(SERVICE_ROWS)
+      if (table === 'delivery_fee_tiers') return makeChain(TIER_ROWS)
+      if (table === 'owner_expenses') return insertChain
+      return makeChain()
+    })
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Electricity')).toBeInTheDocument())
+    await userEvent.click(screen.getByText('Electricity'))
+    await waitFor(() => expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Electricity', monthly_amount: 0 })
+    ))
+  })
+
+  it('adds a custom expense via the manual form', async () => {
+    const insertChain = makeChain(EXPENSE_ROWS)
+    insertChain.single = vi.fn().mockResolvedValue({
+      data: { id: 'e3', owner_id: 'owner-1', name: 'Water bill', monthly_amount: 0 },
+      error: null,
+    })
+    vi.mocked(supabase.from).mockImplementation((table) => {
+      if (table === 'service_menu') return makeChain(SERVICE_ROWS)
+      if (table === 'delivery_fee_tiers') return makeChain(TIER_ROWS)
+      if (table === 'owner_expenses') return insertChain
+      return makeChain()
+    })
+    renderPage()
+    await waitFor(() => expect(screen.getByText('shop_profile.add_own_expense')).toBeInTheDocument())
+    await userEvent.click(screen.getByText('shop_profile.add_own_expense'))
+    await userEvent.type(screen.getByPlaceholderText('shop_profile.expense_name_placeholder'), 'Water bill')
+    await userEvent.click(screen.getByText('shop_profile.add_expense_submit'))
+    await waitFor(() => expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Water bill' })
+    ))
   })
 })
 
