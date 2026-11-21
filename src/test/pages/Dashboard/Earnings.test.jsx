@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import DashboardEarnings from '../../../pages/Dashboard/Earnings'
 import { supabase } from '../../../lib/supabase'
@@ -111,5 +112,30 @@ describe('Earnings — other recurring expenses configured', () => {
     // "Today" period (default) = 1 day → 300000/30*1 = 10000 paise = ₹100
     await waitFor(() => expect(screen.getByText('earnings.other_expenses_period')).toBeInTheDocument())
     expect(screen.getByText(formatCurrency(10000, 'IN'))).toBeInTheDocument()
+  })
+})
+
+describe('Earnings — shop QR code', () => {
+  beforeEach(() => {
+    ownerState = { id: 'owner-1', country_code: 'IN', bw_rate: 200, color_rate: 500, slug: 'quick-print', shop_name: 'Quick Print' }
+    jobsState = []
+    vi.mocked(supabase.from).mockReturnValue(makeChain([]))
+  })
+
+  it('shows a QR code button alongside the share link, and opens the printable QR view on click', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText('earnings.qr_button')).toBeInTheDocument())
+
+    expect(screen.queryByText('earnings.qr_scan_hint')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByText('earnings.qr_button'))
+    expect(screen.getByText('earnings.qr_scan_hint')).toBeInTheDocument()
+    expect(screen.getByText('Quick Print')).toBeInTheDocument()
+  })
+
+  it('does not show the QR button when the shop has no public link yet', async () => {
+    ownerState = { id: 'owner-1', country_code: 'IN', bw_rate: 200, color_rate: 500 }
+    renderPage()
+    await waitFor(() => expect(screen.getByText('earnings.title')).toBeInTheDocument())
+    expect(screen.queryByText('earnings.qr_button')).not.toBeInTheDocument()
   })
 })

@@ -206,7 +206,10 @@
     "profitable_msg": "Your printer paid for itself this month.",
     "breakeven_msg": "Almost there — just a few more jobs to cover your ink.",
     "loss_msg": "Print more to cover your costs — share your link with neighbours!",
-    "share_link": "Your shop link"
+    "share_link": "Your shop link",
+    "qr_button": "QR code for your shop",
+    "qr_scan_hint": "Scan to send us a print job",
+    "qr_print": "Print"
   },
   "settings": {
     "title": "Settings",
