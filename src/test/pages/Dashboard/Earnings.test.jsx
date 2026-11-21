@@ -60,7 +60,7 @@ describe('Earnings — cartridge configured', () => {
   beforeEach(() => {
     ownerState = {
       id: 'owner-1', country_code: 'IN', bw_rate: 200, color_rate: 500,
-      bw_cartridge_price: 60000, bw_cartridge_yield: 1000, // 60 paise/page
+      bw_ink_cost_per_page: 60, // 60 paise/page
     }
     jobsState = [deliveredJob({ printType: 'bw', pages: 100, totalAmount: 5000 })]
     vi.mocked(supabase.from).mockReturnValue(makeChain([]))
@@ -80,7 +80,7 @@ describe('Earnings — paper cost configured', () => {
   beforeEach(() => {
     ownerState = {
       id: 'owner-1', country_code: 'IN', bw_rate: 200, color_rate: 500,
-      paper_price: 30000, paper_sheets_per_ream: 500, // 60 paise/sheet
+      paper_cost_per_page: 60, // 60 paise/page
     }
     jobsState = [deliveredJob({ printType: 'bw', pages: 50, totalAmount: 2000 })]
     vi.mocked(supabase.from).mockReturnValue(makeChain([]))

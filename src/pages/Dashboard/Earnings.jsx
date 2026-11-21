@@ -73,20 +73,21 @@ export default function DashboardEarnings() {
     return s + Math.max(0, j.total_amount - printCost)
   }, 0)
 
-  // Cost estimate — each component is only included when the owner has
-  // configured it in Shop Profile, and scales with pages/time actually
-  // observed in the selected period (never a flat number copied across tabs).
-  const hasBwCartridge = owner?.bw_cartridge_yield > 0
-  const hasColorCartridge = owner?.color_cartridge_yield > 0
-  const hasPaper = owner?.paper_sheets_per_ream > 0
+  // Cost estimate — each component is only included when the owner has a
+  // configured (or defaulted) cost-per-page in Shop Profile, and scales with
+  // pages/time actually observed in the selected period (never a flat number
+  // copied across tabs).
+  const hasBwInk = owner?.bw_ink_cost_per_page != null
+  const hasColorInk = owner?.color_ink_cost_per_page != null
+  const hasPaper = owner?.paper_cost_per_page != null
   const hasExpenses = expenses.length > 0
-  const hasCostInputs = hasBwCartridge || hasColorCartridge || hasPaper || hasExpenses
+  const hasCostInputs = hasBwInk || hasColorInk || hasPaper || hasExpenses
 
   const inkCost = Math.round(
-    (hasBwCartridge ? bwPages * (owner.bw_cartridge_price / owner.bw_cartridge_yield) : 0) +
-    (hasColorCartridge ? colorPages * (owner.color_cartridge_price / owner.color_cartridge_yield) : 0)
+    (hasBwInk ? bwPages * owner.bw_ink_cost_per_page : 0) +
+    (hasColorInk ? colorPages * owner.color_ink_cost_per_page : 0)
   )
-  const paperCost = hasPaper ? Math.round(pagesTotal * (owner.paper_price / owner.paper_sheets_per_ream)) : 0
+  const paperCost = hasPaper ? Math.round(pagesTotal * owner.paper_cost_per_page) : 0
 
   // Recurring monthly expenses (rent, electricity, ...) are prorated by the
   // number of days actually covered — "all time" prorates from when the
@@ -190,7 +191,7 @@ export default function DashboardEarnings() {
           {hasCostInputs ? (
             <div className="border-t border-border pt-3 space-y-2">
               {[
-                hasBwCartridge || hasColorCartridge ? { label: t('earnings.ink_cost_estimate'), value: fmt(inkCost) } : null,
+                hasBwInk || hasColorInk ? { label: t('earnings.ink_cost_estimate'), value: fmt(inkCost) } : null,
                 hasPaper ? { label: t('earnings.paper_cost_estimate'), value: fmt(paperCost) } : null,
                 hasExpenses ? { label: t('earnings.other_expenses_period'), value: fmt(expenseCost) } : null,
               ].filter(Boolean).map(row => (
