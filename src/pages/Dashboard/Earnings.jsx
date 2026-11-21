@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { ExternalLink, Copy } from 'lucide-react'
+import { ExternalLink, Copy, QrCode } from 'lucide-react'
 import { useOwner } from '../../hooks/useOwner'
 import { useJobs } from '../../hooks/useJobs'
 import { supabase } from '../../lib/supabase'
@@ -10,6 +10,7 @@ import { buildShopShareLink } from '../../notifications/whatsapp'
 import Button from '../../components/ui/Button'
 import AppNav from '../../components/AppNav'
 import DashboardNav from '../../components/DashboardNav'
+import ShopQRCode from '../../components/ShopQRCode'
 
 const PERIODS = ['today', 'week', 'month', 'all']
 const PERIOD_LABELS = { today: 'Today', week: 'This week', month: 'This month', all: 'All time' }
@@ -43,6 +44,7 @@ export default function DashboardEarnings() {
   const [period, setPeriod] = useState('today')
   const [expenses, setExpenses] = useState([])
   const [copied, setCopied] = useState(false)
+  const [showQR, setShowQR] = useState(false)
 
   useEffect(() => {
     if (!owner) return
@@ -242,9 +244,20 @@ export default function DashboardEarnings() {
                 <ExternalLink size={16} /> WhatsApp
               </a>
             </div>
+            <Button variant="secondary" size="sm" onClick={() => setShowQR(true)} className="w-full">
+              <QrCode size={16} /> {t('earnings.qr_button')}
+            </Button>
           </div>
         )}
       </div>
+
+      {showQR && (
+        <ShopQRCode
+          shopUrl={shopUrl}
+          shopName={owner?.shop_name || ''}
+          onClose={() => setShowQR(false)}
+        />
+      )}
 
       <DashboardNav />
     </div>
