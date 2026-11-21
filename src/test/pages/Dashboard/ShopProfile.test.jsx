@@ -45,9 +45,7 @@ const SHOP_OWNER = {
   description: 'Fast printing near the metro', banner_url: null,
   shop_address: '12 Main St', locality: 'Tarnaka', landmark: '', gst_number: '',
   lat: 17.4, lng: 78.5, bw_rate: 200, color_rate: 500, delivery_fee: 0,
-  bw_cartridge_price: 65000, bw_cartridge_yield: 1500,
-  color_cartridge_price: 150000, color_cartridge_yield: 400,
-  paper_price: 30000, paper_sheets_per_ream: 500,
+  bw_ink_cost_per_page: 45, color_ink_cost_per_page: 300, paper_cost_per_page: 60,
 }
 
 const HOME_OWNER = {
@@ -147,28 +145,22 @@ describe('ShopProfile — shop-type owner', () => {
     expect(updates).not.toHaveProperty('accept_cash')
   })
 
-  it('pre-fills cartridge and paper cost fields from the owner row', async () => {
+  it('pre-fills ink and paper cost-per-page fields from the owner row', async () => {
     renderPage()
-    await waitFor(() => expect(screen.getByDisplayValue('650')).toBeInTheDocument())
-    // bw_cartridge_yield (1500) and color_cartridge_price in rupees (150000/100=1500) coincide
-    expect(screen.getAllByDisplayValue('1500')).toHaveLength(2)
-    expect(screen.getByDisplayValue('400')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('300')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('500')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByDisplayValue('0.45')).toBeInTheDocument())
+    expect(screen.getByDisplayValue('3')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('0.6')).toBeInTheDocument()
   })
 
-  it('includes cartridge and paper fields in the save payload', async () => {
+  it('includes ink and paper cost-per-page fields in the save payload', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByText('shop_profile.save_shop_info')).toBeInTheDocument())
     screen.getByText('shop_profile.save_shop_info').click()
     await waitFor(() => expect(mockUpdateOwner).toHaveBeenCalled())
     const updates = mockUpdateOwner.mock.calls[0][0]
-    expect(updates.bw_cartridge_price).toBe(65000)
-    expect(updates.bw_cartridge_yield).toBe(1500)
-    expect(updates.color_cartridge_price).toBe(150000)
-    expect(updates.color_cartridge_yield).toBe(400)
-    expect(updates.paper_price).toBe(30000)
-    expect(updates.paper_sheets_per_ream).toBe(500)
+    expect(updates.bw_ink_cost_per_page).toBe(45)
+    expect(updates.color_ink_cost_per_page).toBe(300)
+    expect(updates.paper_cost_per_page).toBe(60)
   })
 
   it('inserts a new custom service row when added via the manual form', async () => {

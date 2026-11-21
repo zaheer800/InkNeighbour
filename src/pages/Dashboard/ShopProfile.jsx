@@ -94,12 +94,9 @@ export default function ShopProfile() {
       bw_rate:       (owner.bw_rate   / 100).toString(),
       color_rate:    (owner.color_rate / 100).toString(),
       delivery_fee:  ((owner.delivery_fee ?? 0) / 100).toString(),
-      bw_cartridge_price:     owner.bw_cartridge_price    != null ? (owner.bw_cartridge_price / 100).toString()    : '',
-      bw_cartridge_yield:     owner.bw_cartridge_yield    != null ? owner.bw_cartridge_yield.toString()            : '',
-      color_cartridge_price:  owner.color_cartridge_price != null ? (owner.color_cartridge_price / 100).toString() : '',
-      color_cartridge_yield:  owner.color_cartridge_yield != null ? owner.color_cartridge_yield.toString()         : '',
-      paper_price:            owner.paper_price           != null ? (owner.paper_price / 100).toString()          : '',
-      paper_sheets_per_ream:  owner.paper_sheets_per_ream != null ? owner.paper_sheets_per_ream.toString()         : '',
+      bw_ink_cost_per_page:    owner.bw_ink_cost_per_page    != null ? (owner.bw_ink_cost_per_page / 100).toString()    : '',
+      color_ink_cost_per_page: owner.color_ink_cost_per_page != null ? (owner.color_ink_cost_per_page / 100).toString() : '',
+      paper_cost_per_page:     owner.paper_cost_per_page     != null ? (owner.paper_cost_per_page / 100).toString()    : '',
     })
     bannerUrlRef.current = owner.banner_url || null
 
@@ -194,11 +191,6 @@ export default function ShopProfile() {
     return (v !== '' && !isNaN(n) && n >= 0) ? Math.round(n * 100) : null
   }
 
-  function toPositiveIntOrNull(v) {
-    const n = parseInt(v, 10)
-    return (v !== '' && !isNaN(n) && n > 0) ? n : null
-  }
-
   async function handleSaveShopInfo() {
     setSaving(true)
     const updates = {
@@ -206,12 +198,9 @@ export default function ShopProfile() {
       description:  form.description.trim().slice(0, 200) || null,
       bw_rate:      Math.round(parseFloat(form.bw_rate)    * 100) || owner.bw_rate,
       color_rate:   Math.round(parseFloat(form.color_rate) * 100) || owner.color_rate,
-      bw_cartridge_price:    toPaiseOrNull(form.bw_cartridge_price),
-      bw_cartridge_yield:    toPositiveIntOrNull(form.bw_cartridge_yield),
-      color_cartridge_price: toPaiseOrNull(form.color_cartridge_price),
-      color_cartridge_yield: toPositiveIntOrNull(form.color_cartridge_yield),
-      paper_price:           toPaiseOrNull(form.paper_price),
-      paper_sheets_per_ream: toPositiveIntOrNull(form.paper_sheets_per_ream),
+      bw_ink_cost_per_page:    toPaiseOrNull(form.bw_ink_cost_per_page),
+      color_ink_cost_per_page: toPaiseOrNull(form.color_ink_cost_per_page),
+      paper_cost_per_page:     toPaiseOrNull(form.paper_cost_per_page),
     }
 
     if (isShop) {
@@ -558,78 +547,37 @@ export default function ShopProfile() {
           />
         </section>
 
-        {/* ── Cartridge cost ────────────────────────────────────────────── */}
+        {/* ── Running costs ─────────────────────────────────────────────── */}
         <section className="bg-surface rounded-xl shadow-card p-5 space-y-4">
           <div>
             <h2 className="font-bold text-lg text-ink">{t('shop_profile.cartridge_title')}</h2>
             <p className="text-sm text-muted mt-1">{t('shop_profile.cartridge_hint')}</p>
           </div>
 
-          <div>
-            <p className="text-sm font-semibold text-ink mb-2">{t('shop_profile.cartridge_bw_label')}</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label={t('shop_profile.cartridge_price_label')}
-                type="number"
-                value={form.bw_cartridge_price}
-                onChange={e => set('bw_cartridge_price', e.target.value)}
-                placeholder="e.g. 650"
-                min="0" step="1"
-              />
-              <Input
-                label={t('shop_profile.cartridge_yield_label')}
-                type="number"
-                value={form.bw_cartridge_yield}
-                onChange={e => set('bw_cartridge_yield', e.target.value)}
-                placeholder="e.g. 1500"
-                min="1" step="1"
-              />
-            </div>
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-ink mb-2">{t('shop_profile.cartridge_color_label')}</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label={t('shop_profile.cartridge_price_label')}
-                type="number"
-                value={form.color_cartridge_price}
-                onChange={e => set('color_cartridge_price', e.target.value)}
-                placeholder="e.g. 1500"
-                min="0" step="1"
-              />
-              <Input
-                label={t('shop_profile.cartridge_yield_label')}
-                type="number"
-                value={form.color_cartridge_yield}
-                onChange={e => set('color_cartridge_yield', e.target.value)}
-                placeholder="e.g. 400"
-                min="1" step="1"
-              />
-            </div>
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-ink mb-2">{t('shop_profile.paper_label')}</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label={t('shop_profile.paper_price_label')}
-                type="number"
-                value={form.paper_price}
-                onChange={e => set('paper_price', e.target.value)}
-                placeholder="e.g. 300"
-                min="0" step="1"
-              />
-              <Input
-                label={t('shop_profile.paper_sheets_label')}
-                type="number"
-                value={form.paper_sheets_per_ream}
-                onChange={e => set('paper_sheets_per_ream', e.target.value)}
-                placeholder="e.g. 500"
-                min="1" step="1"
-              />
-            </div>
-          </div>
+          <Input
+            label={t('shop_profile.bw_ink_cost_label')}
+            type="number"
+            value={form.bw_ink_cost_per_page}
+            onChange={e => set('bw_ink_cost_per_page', e.target.value)}
+            placeholder="e.g. 0.50"
+            min="0" step="0.05"
+          />
+          <Input
+            label={t('shop_profile.color_ink_cost_label')}
+            type="number"
+            value={form.color_ink_cost_per_page}
+            onChange={e => set('color_ink_cost_per_page', e.target.value)}
+            placeholder="e.g. 3.00"
+            min="0" step="0.05"
+          />
+          <Input
+            label={t('shop_profile.paper_cost_label')}
+            type="number"
+            value={form.paper_cost_per_page}
+            onChange={e => set('paper_cost_per_page', e.target.value)}
+            placeholder="e.g. 0.60"
+            min="0" step="0.05"
+          />
         </section>
 
         <Button onClick={handleSaveShopInfo} loading={saving} className="w-full" size="md">
