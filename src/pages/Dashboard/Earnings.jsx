@@ -6,6 +6,8 @@ import { useOwner } from '../../hooks/useOwner'
 import { useJobs } from '../../hooks/useJobs'
 import { supabase } from '../../lib/supabase'
 import { formatCurrency } from '../../lib/countries'
+import { getShopUrl } from '../../lib/slugify'
+import { copyToClipboard } from '../../lib/clipboard'
 import { buildShopShareLink } from '../../notifications/whatsapp'
 import Button from '../../components/ui/Button'
 import AppNav from '../../components/AppNav'
@@ -110,23 +112,10 @@ export default function DashboardEarnings() {
     else motivationMsg = t('earnings.loss_msg')
   }
 
-  const shopSlug = owner?.slug || owner?.societies?.slug || ''
-  const appUrl = window.location.origin
-  const shopUrl = shopSlug ? `${appUrl}/${shopSlug}` : ''
+  const shopUrl = getShopUrl(owner)
 
   function copyLink() {
-    const write = navigator.clipboard
-      ? navigator.clipboard.writeText(shopUrl)
-      : Promise.resolve().then(() => {
-          const el = document.createElement('textarea')
-          el.value = shopUrl
-          Object.assign(el.style, { position: 'fixed', opacity: '0' })
-          document.body.appendChild(el)
-          el.select()
-          document.execCommand('copy')
-          document.body.removeChild(el)
-        })
-    write.then(() => {
+    copyToClipboard(shopUrl).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
