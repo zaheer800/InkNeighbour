@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { ExternalLink, Copy } from 'lucide-react'
 import { useOwner } from '../../hooks/useOwner'
 import { useJobs } from '../../hooks/useJobs'
+import { supabase } from '../../lib/supabase'
 import { formatCurrency } from '../../lib/countries'
 import { buildShopShareLink } from '../../notifications/whatsapp'
 import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
 import AppNav from '../../components/AppNav'
 import DashboardNav from '../../components/DashboardNav'
 
@@ -40,8 +41,17 @@ export default function DashboardEarnings() {
   const { owner } = useOwner()
   const { jobs } = useJobs()
   const [period, setPeriod] = useState('today')
-  const [cartridgeCost, setCartridgeCost] = useState('')
+  const [expenses, setExpenses] = useState([])
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!owner) return
+    supabase
+      .from('owner_expenses')
+      .select('monthly_amount')
+      .eq('owner_id', owner.id)
+      .then(({ data }) => setExpenses(data || []))
+  }, [owner])
 
   const countryCode = owner?.country_code || 'IN'
   const fmt = v => formatCurrency(v, countryCode)
@@ -63,12 +73,35 @@ export default function DashboardEarnings() {
     return s + Math.max(0, j.total_amount - printCost)
   }, 0)
 
-  const cartridgePaise = cartridgeCost ? Math.round(parseFloat(cartridgeCost) * 100) : 0
-  const netProfit = totalEarned - cartridgePaise
+  // Cost estimate — each component is only included when the owner has
+  // configured it in Shop Profile, and scales with pages/time actually
+  // observed in the selected period (never a flat number copied across tabs).
+  const hasBwCartridge = owner?.bw_cartridge_yield > 0
+  const hasColorCartridge = owner?.color_cartridge_yield > 0
+  const hasPaper = owner?.paper_sheets_per_ream > 0
+  const hasExpenses = expenses.length > 0
+  const hasCostInputs = hasBwCartridge || hasColorCartridge || hasPaper || hasExpenses
+
+  const inkCost = Math.round(
+    (hasBwCartridge ? bwPages * (owner.bw_cartridge_price / owner.bw_cartridge_yield) : 0) +
+    (hasColorCartridge ? colorPages * (owner.color_cartridge_price / owner.color_cartridge_yield) : 0)
+  )
+  const paperCost = hasPaper ? Math.round(pagesTotal * (owner.paper_price / owner.paper_sheets_per_ream)) : 0
+
+  // Recurring monthly expenses (rent, electricity, ...) are prorated by the
+  // number of days actually covered — "all time" prorates from when the
+  // shop was created rather than the epoch, so it doesn't explode.
+  const recurringStart = period === 'all' && owner?.created_at ? new Date(owner.created_at) : start
+  const periodDays = Math.max(1, Math.ceil((Date.now() - recurringStart.getTime()) / 86400000))
+  const monthlyExpenseTotal = expenses.reduce((s, e) => s + e.monthly_amount, 0)
+  const expenseCost = Math.round(monthlyExpenseTotal / 30 * periodDays)
+
+  const totalCostEstimate = inkCost + paperCost + expenseCost
+  const netProfit = totalEarned - totalCostEstimate
 
   let motivationMsg = ''
   if (totalEarned === 0) motivationMsg = t('earnings.loss_msg')
-  else if (cartridgePaise > 0) {
+  else if (hasCostInputs) {
     if (netProfit > 0) motivationMsg = t('earnings.profitable_msg')
     else if (netProfit >= -1000) motivationMsg = t('earnings.breakeven_msg')
     else motivationMsg = t('earnings.loss_msg')
@@ -154,23 +187,31 @@ export default function DashboardEarnings() {
             </div>
           ))}
 
-          <div className="border-t border-border pt-3 space-y-2">
-            <Input
-              label={t('earnings.cartridge_cost')}
-              type="number"
-              value={cartridgeCost}
-              onChange={e => setCartridgeCost(e.target.value)}
-              placeholder="e.g. 800"
-              min="0"
-              hint="Optional — enter your actual cartridge cost (₹)"
-            />
-            {cartridgePaise > 0 && (
+          {hasCostInputs ? (
+            <div className="border-t border-border pt-3 space-y-2">
+              {[
+                hasBwCartridge || hasColorCartridge ? { label: t('earnings.ink_cost_estimate'), value: fmt(inkCost) } : null,
+                hasPaper ? { label: t('earnings.paper_cost_estimate'), value: fmt(paperCost) } : null,
+                hasExpenses ? { label: t('earnings.other_expenses_period'), value: fmt(expenseCost) } : null,
+              ].filter(Boolean).map(row => (
+                <div key={row.label} className="flex justify-between text-base">
+                  <span className="text-muted">{row.label}</span>
+                  <span className="font-semibold text-ink">{row.value}</span>
+                </div>
+              ))}
               <div className="flex justify-between text-base font-bold border-t border-border pt-2">
                 <span className="text-ink">{t('earnings.net_profit')}</span>
                 <span className={netProfit >= 0 ? 'text-green' : 'text-red'}>{fmt(netProfit)}</span>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="border-t border-border pt-3 space-y-2">
+              <p className="text-sm text-muted">{t('earnings.costs_setup_prompt')}</p>
+              <Link to="/dashboard/profile" className="inline-block text-sm font-semibold text-violet hover:text-violet/80 min-h-[44px] flex items-center">
+                {t('earnings.costs_setup_cta')}
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Motivational message */}
